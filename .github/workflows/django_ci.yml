@@ -42,7 +42,9 @@ jobs:
         username: ${{ secrets.VPS_USERNAME }}
         password: ${{ secrets.VPS_PASSWORD }}
         script: |
-          cd /var/www/directory_listing
-          git stash
-          git pull origin main
+          cd /var/www/directory_listing && \
+          git stash && \
+          git pull origin main && \
+          python manage.py makemigrations --noinput && \
+          python manage.py migrate --noinput && \
           sudo docker-compose up -d --build
