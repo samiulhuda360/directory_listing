@@ -45,12 +45,13 @@ jobs:
           cd /var/www/directory_listing && \
           git stash && \
           git pull origin main && \
+          
           # Make migrations and migrate
           python manage.py makemigrations listing --noinput && \
-          python manage.py migrate --noinput && \
+          python manage.py migrate --noinput --run-syncdb && \
           
-          # Run tests
-          python manage.py test --noinput || { echo "Tests failed"; exit 1; } && \
+          # Run tests with verbose output and exit on failure
+          python manage.py test listing --noinput -v 2 || { echo "Tests failed"; exit 1; } && \
           
           # Build and restart Docker containers
           sudo docker-compose up -d --build
