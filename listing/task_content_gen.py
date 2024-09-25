@@ -7,15 +7,16 @@ from django.conf import settings
 from .models import OpenAI_APIKeyConfig, SiteRecordContentGen
 import os
 
-def get_openai_api_key():
-    api_config = OpenAI_APIKeyConfig.objects.first()
-    if api_config:
-        return api_config.api_key
-    else:
-        raise ValueError("No OpenAI API key found")
+# def get_openai_api_key():
+#     api_config = OpenAI_APIKeyConfig.objects.first()
+#     if api_config:
+#         return api_config.api_key
+#     else:
+#         raise ValueError("No OpenAI API key found")
 
 # Set OpenAI API key from the database
-openai.api_key = get_openai_api_key()
+openai.api_key = "Temp key"
+# openai.api_key = get_openai_api_key()
 
 
 def process_xls_file(file, num_sites):
