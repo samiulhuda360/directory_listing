@@ -107,8 +107,11 @@ h2 {
                             <a class="nav-link {% if request.resolver_match.url_name == 'post_update' %}active{% endif %}" href="{% url 'post_update' %}">Update Post</a>
                         </li>   
                         <li class="nav-item">
-                            <a class="nav-link {% if request.resolver_match.url_name == 'delete_posts' %}active{% endif %}" href="{% url 'delete_posts' %}">Delete Generated Links</a>
-                        </li>                   
+                            <a class="nav-link {% if request.resolver_match.url_name == 'delete_posts' %}active{% endif %}" href="{% url 'delete_posts' %}">Delete Posts</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.resolver_match.url_name == 'content_gen' %}active{% endif %}" href="{% url 'content_gen' %}">Contnet Generation</a>
+                        </li>                 
                 </ul>
                 
                 {% else %}

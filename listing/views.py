@@ -21,7 +21,7 @@ import requests
 from django.core.exceptions import ValidationError
 from django.http import HttpResponseRedirect
 from django.urls import reverse
-
+from .task_content_gen import process_xls_file
 
 
 
@@ -717,3 +717,28 @@ def post_update_view(request):
         return render(request, 'listing/post_update.html', {'messages': messages})
 
     return render(request, 'listing/post_update.html')
+
+
+def content_gen_view(request):
+    if request.method == 'POST':
+        # Get the uploaded file
+        xlsx_file = request.FILES.get('xlsx_file')
+        num_sites = int(request.POST.get('num_sites', 1))
+
+        if xlsx_file:
+            # Call the function to process the XLS file
+            try:
+                posted_urls = process_xls_file(xlsx_file, num_sites)
+                return JsonResponse({
+                    'status': 'success',
+                    'message': 'File uploaded and processed successfully.',
+                    'posted_urls': posted_urls  # Include the posted URLs in the response
+                })
+            except Exception as e:
+                print(f"Error during file processing: {str(e)}")
+                return JsonResponse({'status': 'error', 'message': f'File processing error: {str(e)}'}, status=500)
+        else:
+            return JsonResponse({'status': 'error', 'message': 'No file uploaded.'}, status=400)
+
+    return render(request, 'listing/content_generation.html')
+

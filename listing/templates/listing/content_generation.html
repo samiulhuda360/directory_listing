@@ -1,0 +1,59 @@
+{% extends "listing/base.html" %}
+
+{% block title %}Content Generation{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Upload XLS File and Set Number of Sites</h2>
+    <form id="upload-form" method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="xlsx_file" class="form-label">Upload XLS File</label>
+            <input type="file" class="form-control" id="xlsx_file" name="xlsx_file" required>
+        </div>
+        <div class="mb-3">
+            <label for="num_sites" class="form-label">Number of Sites</label>
+            <input type="number" class="form-control" id="num_sites" name="num_sites" min="1" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Submit</button>
+    </form>
+    <div id="result-message" class="mt-3"></div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        $('#upload-form').on('submit', function(event) {
+            event.preventDefault(); // Prevent the default form submission
+            $('#result-message').html('<p class="text-info">Processing... Please wait.</p>'); // Show processing message
+            var formData = new FormData(this); // Get form data
+
+            $.ajax({
+                url: "{% url 'content_gen' %}",  // Update this URL to match your Django URL pattern
+                type: 'POST',
+                data: formData,
+                contentType: false,
+                processData: false,
+                success: function(response) {
+                    // Show success message
+                    $('#result-message').html('<p class="text-success">' + response.message + '</p>');
+                    
+                    // If you want to display posted URLs, you can append them here
+                    if (response.posted_urls && response.posted_urls.length > 0) {
+                        var urlsHtml = '<ul>';
+                        response.posted_urls.forEach(function(url) {
+                            urlsHtml += '<li>' + url + '</li>';
+                        });
+                        urlsHtml += '</ul>';
+                        $('#result-message').append(urlsHtml); // Add the posted URLs to the message
+                    }
+                },
+                error: function(response) {
+                    // Show error message
+                    $('#result-message').html('<p class="text-danger">' + response.responseJSON.message + '</p>');
+                }
+            });
+        });
+    });
+</script>
+
+{% endblock %}

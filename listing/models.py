@@ -63,3 +63,18 @@ class TaskInfo(models.Model):
     
     def __str__(self):
         return f"{self.post_url} - {self.task_id}"
+    
+class OpenAI_APIKeyConfig(models.Model):
+    api_key = models.CharField(max_length=255)
+
+    def __str__(self):
+        return "OpenAI API Key"
+    
+    
+class SiteRecordContentGen(models.Model):
+    site_name = models.CharField(max_length=255, unique=True)  # Unique site name
+    business_domains = models.JSONField(default=list)  # Store a list of business domains in JSON format
+
+    def __str__(self):
+        return self.site_name
+

@@ -1,4 +1,4 @@
-from .models import APIConfig, GeneratedURL, WebsiteData, CompanyURL, PostedWebsite,TaskInfo
+from .models import APIConfig, GeneratedURL, WebsiteData, CompanyURL, PostedWebsite,TaskInfo, OpenAI_APIKeyConfig, SiteRecordContentGen
 from django.contrib import admin
 
 
@@ -11,7 +11,9 @@ class CompanyURLAdmin(admin.ModelAdmin):
     search_fields = ['generated_url', 'company_website']
 
 admin.site.register(APIConfig, APIConfigAdmin)
+admin.site.register(OpenAI_APIKeyConfig)
 admin.site.register(GeneratedURL)
 admin.site.register(WebsiteData)
+admin.site.register(SiteRecordContentGen)
 admin.site.register(PostedWebsite)
 admin.site.register(TaskInfo)
