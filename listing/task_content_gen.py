@@ -8,20 +8,20 @@ from .models import OpenAI_APIKeyConfig, SiteRecordContentGen
 import os
 from django.core.exceptions import ObjectDoesNotExist
 
-def get_openai_api_key():
-    try:
-        api_config = OpenAI_APIKeyConfig.objects.first()
-        if api_config:
-            return api_config.api_key
-        else:
-            raise ValueError("No OpenAI API key found")
-    except ObjectDoesNotExist:
-        raise ValueError("OpenAI_APIKeyConfig table does not exist. Please run migrations.")
+# def get_openai_api_key():
+#     try:
+#         api_config = OpenAI_APIKeyConfig.objects.first()
+#         if api_config:
+#             return api_config.api_key
+#         else:
+#             raise ValueError("No OpenAI API key found")
+#     except ObjectDoesNotExist:
+#         raise ValueError("OpenAI_APIKeyConfig table does not exist. Please run migrations.")
 
 
-openai.api_key = get_openai_api_key()
+# openai.api_key = get_openai_api_key()
 
-
+openai.api_key = "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"
 
 def process_xls_file(file, num_sites):
     # Ensure the 'tmp/' directory exists
