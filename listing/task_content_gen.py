@@ -8,7 +8,6 @@ from .models import OpenAI_APIKeyConfig, SiteRecordContentGen
 import os
 from django.core.exceptions import ObjectDoesNotExist
 
-
 def get_openai_api_key():
     try:
         api_config = OpenAI_APIKeyConfig.objects.first()
@@ -18,7 +17,8 @@ def get_openai_api_key():
             raise ValueError("No OpenAI API key found")
     except ObjectDoesNotExist:
         raise ValueError("OpenAI_APIKeyConfig table does not exist. Please run migrations.")
-# Set OpenAI API key from the database
+
+
 openai.api_key = get_openai_api_key()
 
 
