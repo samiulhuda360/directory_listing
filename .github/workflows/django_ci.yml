@@ -45,7 +45,7 @@ jobs:
           cd /var/www/directory_listing && \
           git stash && \
           git pull origin main && \
-          python manage.py makemigrations --noinput && \
+          python manage.py makemigrations listing --noinput && \
           python manage.py migrate --noinput && \
-          python manage.py test && \
+          python manage.py test --noinput && \
           sudo docker-compose up -d --build
