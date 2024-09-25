@@ -22,6 +22,7 @@ def get_openai_api_key():
 openai.api_key = get_openai_api_key()
 
 
+
 def process_xls_file(file, num_sites):
     # Ensure the 'tmp/' directory exists
     tmp_dir = 'tmp/'
