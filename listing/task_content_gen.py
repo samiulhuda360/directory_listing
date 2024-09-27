@@ -84,7 +84,7 @@ def process_xls_file(file, num_sites):
             print(f"Posting successful for {api_config_site}.")
             successful_postings += 1  # Increment the successful postings counter
         else:
-            print(f"Posting skipped for {api_config_site}.")
+            print(f"Posting skipped for {api_config_site}. URL: {posted_url}")
 
         total_sites_processed += 1  # Increment the total sites processed counter
 
@@ -105,23 +105,24 @@ def process_site(second_column_data, api_config_site, map_iframe):
     street_address = second_column_data.get('street_address_single')
     phone = second_column_data.get('phone_single')
     target_url = second_column_data.get('target_ur_single')
-    
-    
+
     # Fetch or create the site record
     site_record, created = SiteRecordContentGen.objects.get_or_create(site_name=api_config_site)
 
     # Check if the target URL already exists in the business_domains list
     if target_url in site_record.business_domains:
         print(f"Target URL {target_url} already exists for {api_config_site}, skipping posting.")
-        return False  
+        return False, "Target URL already exists."  # Return False with a message
+
     print(f"Start to post on {api_config_site}")
+    
     # Generate article using OpenAI
     generate_title = generate_article(generate_prompt_for_title(city, state, zip_code))
     prompt = generate_prompt_for_content(city, state, zip_code, keywords_list, services_provide_list, business_name, street_address, phone, target_url, map_iframe)
+    
     print("Title: ", generate_title)
     print(prompt)
     article = generate_article(prompt)
-
 
     # Post article to WordPress using the APIConfig model
     status_code, response_or_posted_url = post_to_wordpress(api_config_site, generate_title, article)
@@ -134,7 +135,6 @@ def process_site(second_column_data, api_config_site, map_iframe):
         print(f"Updated SiteRecordContentGen for {api_config_site} with new domain: {target_url}")
         return True, response_or_posted_url  # Return success and the posted URL
     else:
-        # If posting failed, ensure response_or_posted_url has some meaningful value
         print(f"Failed to post to WordPress. Status code: {status_code}, response: {response_or_posted_url if response_or_posted_url else 'No response received'}")
         return False, response_or_posted_url if response_or_posted_url else 'No response'  # Return failure and error message
 
