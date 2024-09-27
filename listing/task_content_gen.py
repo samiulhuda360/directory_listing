@@ -10,18 +10,20 @@ from django.core.exceptions import ObjectDoesNotExist
 
 def get_openai_api_key():
     try:
+        # Try to get the API key from the database
         api_config = OpenAI_APIKeyConfig.objects.first()
-        if api_config:
+        if api_config and api_config.api_key:
             return api_config.api_key
         else:
-            raise ValueError("No OpenAI API key found")
-    except ObjectDoesNotExist:
-        raise ValueError("OpenAI_APIKeyConfig table does not exist. Please run migrations.")
+            raise ValueError("No OpenAI API key found in the database")
+    except Exception as e:
+        # Log the exception (optional)
+        print(f"Database error: {e}")
+        # Fallback to the hardcoded API key
+        return "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"
 
-
+# Set the OpenAI API key
 openai.api_key = get_openai_api_key()
-
-# openai.api_key = "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"
 
 def process_xls_file(file, num_sites):
     # Ensure the 'tmp/' directory exists
