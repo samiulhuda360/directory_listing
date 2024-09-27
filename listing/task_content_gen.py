@@ -51,9 +51,13 @@ def process_xls_file(file, num_sites):
     # Extract the data from the third column (C column in Excel, index 2)
     column_c_data = df[2].dropna().tolist()  # Drop blank rows and convert to list
 
-    # Fetch all enabled sites from API configuration
-    api_config_sites = APIConfig.objects.filter(site_enable=True)
-    print("All Site List:", api_config_sites)
+    # Fetch all enabled site websites from API configuration
+    enabled_websites = APIConfig.objects.filter(site_enable=True).values_list('website', flat=True)
+
+    # Convert the QuerySet to a list if needed
+    enabled_websites_list = list(enabled_websites)
+
+    print("Enabled Websites:", enabled_websites_list)
 
     # List to store posted URLs
     posted_urls = []
@@ -63,12 +67,12 @@ def process_xls_file(file, num_sites):
 
     while successful_postings < num_sites:
         # If all sites have been processed, stop
-        if total_sites_processed >= len(api_config_sites):
+        if total_sites_processed >= len(enabled_websites_list):
             print("All enabled sites have been processed.")
             break
 
         # Get the current site from the API config
-        api_config_site = api_config_sites[total_sites_processed]
+        api_config_site = enabled_websites_list[total_sites_processed]
 
         map_iframe = column_c_data[total_sites_processed % len(column_c_data)] if column_c_data else None  
         
@@ -77,10 +81,10 @@ def process_xls_file(file, num_sites):
         # Process the site and check if successful
         if success:
             posted_urls.append(posted_url)
-            print(f"Posting successful for {api_config_site.website}.")
+            print(f"Posting successful for {api_config_site}.")
             successful_postings += 1  # Increment the successful postings counter
         else:
-            print(f"Posting skipped for {api_config_site.website}.")
+            print(f"Posting skipped for {api_config_site}.")
 
         total_sites_processed += 1  # Increment the total sites processed counter
 
@@ -104,13 +108,13 @@ def process_site(second_column_data, api_config_site, map_iframe):
     
     
     # Fetch or create the site record
-    site_record, created = SiteRecordContentGen.objects.get_or_create(site_name=api_config_site.website)
+    site_record, created = SiteRecordContentGen.objects.get_or_create(site_name=api_config_site)
 
     # Check if the target URL already exists in the business_domains list
     if target_url in site_record.business_domains:
-        print(f"Target URL {target_url} already exists for {api_config_site.website}, skipping posting.")
+        print(f"Target URL {target_url} already exists for {api_config_site}, skipping posting.")
         return False  
-    print(f"Start to post on {api_config_site.website}")
+    print(f"Start to post on {api_config_site}")
     # Generate article using OpenAI
     generate_title = generate_article(generate_prompt_for_title(city, state, zip_code))
     prompt = generate_prompt_for_content(city, state, zip_code, keywords_list, services_provide_list, business_name, street_address, phone, target_url, map_iframe)
@@ -127,10 +131,10 @@ def process_site(second_column_data, api_config_site, map_iframe):
         # Append the new target_url to business_domains and save
         site_record.business_domains.append(target_url)
         site_record.save()
-        print(f"Updated SiteRecordContentGen for {api_config_site.website} with new domain: {target_url}")
+        print(f"Updated SiteRecordContentGen for {api_config_site} with new domain: {target_url}")
         return True, response_or_posted_url  # Indicate success
     else:
-        print(f"Failed to post to WordPress. Status code: {status_code}, response: {response_data}")
+        print(f"Failed to post to WordPress. Status code: {status_code}")
         return False  # Indicate failure
 
 
@@ -200,7 +204,7 @@ def generate_article(prompt):
 
 def post_to_wordpress(api_config, generate_title, article):
     # Define the WordPress REST API endpoint and authentication
-    wp_url = f"https://{api_config.website}/wp-json/wp/v2/posts"
+    wp_url = f"https://{api_config}/wp-json/wp/v2/posts"
     auth = (api_config.user, api_config.password)
     
     # Post data payload
