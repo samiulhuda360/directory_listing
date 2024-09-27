@@ -53,7 +53,6 @@ def process_xls_file(file, num_sites):
 
     # Fetch all enabled sites from API configuration
     api_config_sites = APIConfig.objects.filter(site_enable=True)
-    print("All Site List:", api_config_sites)
 
     # List to store posted URLs
     posted_urls = []
@@ -115,7 +114,6 @@ def process_site(second_column_data, api_config_site, map_iframe):
     generate_title = generate_article(generate_prompt_for_title(city, state, zip_code))
     prompt = generate_prompt_for_content(city, state, zip_code, keywords_list, services_provide_list, business_name, street_address, phone, target_url, map_iframe)
     print("Title: ", generate_title)
-    print(prompt)
     article = generate_article(prompt)
 
     # Post article to WordPress using the APIConfig model
@@ -195,7 +193,6 @@ def generate_article(prompt):
     )
     # access the content safely
     content = response.choices[0].message['content']
-    print(content)
     return content.strip()
 
 def post_to_wordpress(api_config, generate_title, article):
