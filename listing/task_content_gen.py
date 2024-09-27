@@ -207,7 +207,7 @@ def post_to_wordpress(api_config, generate_title, article):
     post_data = {
         'title': generate_title.strip('“').strip('”'),
         'content': article,
-        'status': 'draft'
+        'status': 'publish'
     }
 
     # Send POST request to WordPress
