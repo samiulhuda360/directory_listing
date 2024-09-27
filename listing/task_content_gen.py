@@ -200,8 +200,9 @@ def generate_article(prompt):
                   {"role": "user", "content": prompt}],
         max_tokens=1500
     )
-    return response.choices[0]['message']['content'].strip()
-
+    # access the content safely
+    content = response.choices[0].message['content']
+    return content.strip()
 
 def post_to_wordpress(api_config, generate_title, article):
     # Define the WordPress REST API endpoint and authentication
