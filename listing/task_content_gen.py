@@ -132,10 +132,11 @@ def process_site(second_column_data, api_config_site, map_iframe):
         site_record.business_domains.append(target_url)
         site_record.save()
         print(f"Updated SiteRecordContentGen for {api_config_site} with new domain: {target_url}")
-        return True, response_or_posted_url 
+        return True, response_or_posted_url  # Return success and the posted URL
     else:
-        print(f"Failed to post to WordPress. Status code: {status_code}, response: {response_or_posted_url}")
-        return False, response_or_posted_url  
+        # If posting failed, ensure response_or_posted_url has some meaningful value
+        print(f"Failed to post to WordPress. Status code: {status_code}, response: {response_or_posted_url if response_or_posted_url else 'No response received'}")
+        return False, response_or_posted_url if response_or_posted_url else 'No response'  # Return failure and error message
 
 
 
