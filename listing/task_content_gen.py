@@ -11,9 +11,9 @@ from django.core.exceptions import ObjectDoesNotExist
 def get_openai_api_key():
     try:
         # Try to get the API key from the database
-        api_config = OpenAI_APIKeyConfig.objects.first()
-        if api_config and api_config.api_key:
-            return api_config.api_key
+        api_config_api = OpenAI_APIKeyConfig.objects.first()
+        if api_config_api and api_config_api.api_key:
+            return api_config_api.api_key
         else:
             raise ValueError("No OpenAI API key found in the database")
     except Exception as e:
@@ -51,13 +51,9 @@ def process_xls_file(file, num_sites):
     # Extract the data from the third column (C column in Excel, index 2)
     column_c_data = df[2].dropna().tolist()  # Drop blank rows and convert to list
 
-    # Fetch all enabled site websites from API configuration
-    enabled_websites = APIConfig.objects.filter(site_enable=True).values_list('website', flat=True)
-
-    # Convert the QuerySet to a list if needed
-    enabled_websites_list = list(enabled_websites)
-
-    print("Enabled Websites:", enabled_websites_list)
+    # Fetch all enabled sites from API configuration
+    api_config_sites = APIConfig.objects.filter(site_enable=True)
+    print("All Site List:", api_config_sites)
 
     # List to store posted URLs
     posted_urls = []
@@ -67,12 +63,12 @@ def process_xls_file(file, num_sites):
 
     while successful_postings < num_sites:
         # If all sites have been processed, stop
-        if total_sites_processed >= len(enabled_websites_list):
+        if total_sites_processed >= len(api_config_sites):
             print("All enabled sites have been processed.")
             break
 
         # Get the current site from the API config
-        api_config_site = enabled_websites_list[total_sites_processed]
+        api_config_site = api_config_sites[total_sites_processed]
 
         map_iframe = column_c_data[total_sites_processed % len(column_c_data)] if column_c_data else None  
         
@@ -81,10 +77,10 @@ def process_xls_file(file, num_sites):
         # Process the site and check if successful
         if success:
             posted_urls.append(posted_url)
-            print(f"Posting successful for {api_config_site}.")
+            print(f"Posting successful for {api_config_site.website}.")
             successful_postings += 1  # Increment the successful postings counter
         else:
-            print(f"Posting skipped for {api_config_site}. URL: {posted_url}")
+            print(f"Posting skipped for {api_config_site.website}.")
 
         total_sites_processed += 1  # Increment the total sites processed counter
 
@@ -105,28 +101,26 @@ def process_site(second_column_data, api_config_site, map_iframe):
     street_address = second_column_data.get('street_address_single')
     phone = second_column_data.get('phone_single')
     target_url = second_column_data.get('target_ur_single')
-
+    
+    
     # Fetch or create the site record
     site_record, created = SiteRecordContentGen.objects.get_or_create(site_name=api_config_site)
 
     # Check if the target URL already exists in the business_domains list
     if target_url in site_record.business_domains:
         print(f"Target URL {target_url} already exists for {api_config_site}, skipping posting.")
-        return False, "Target URL already exists."  # Return False with a message
-
+        return False  
     print(f"Start to post on {api_config_site}")
-    
     # Generate article using OpenAI
     generate_title = generate_article(generate_prompt_for_title(city, state, zip_code))
     prompt = generate_prompt_for_content(city, state, zip_code, keywords_list, services_provide_list, business_name, street_address, phone, target_url, map_iframe)
-    
     print("Title: ", generate_title)
     print(prompt)
     article = generate_article(prompt)
 
+
     # Post article to WordPress using the APIConfig model
     status_code, response_or_posted_url = post_to_wordpress(api_config_site, generate_title, article)
-
     # If post to WordPress is successful (201), update the SiteRecordContentGen
     if status_code == 201:
         # Append the new target_url to business_domains and save
@@ -137,7 +131,6 @@ def process_site(second_column_data, api_config_site, map_iframe):
     else:
         print(f"Failed to post to WordPress. Status code: {status_code}, response: {response_or_posted_url if response_or_posted_url else 'No response received'}")
         return False, response_or_posted_url if response_or_posted_url else 'No response'  # Return failure and error message
-
 
 
 
@@ -195,13 +188,14 @@ def generate_prompt_for_content(city, state, zip_code, keywords_list, services_p
 
 def generate_article(prompt):
     response = openai.ChatCompletion.create(
-        model="gpt-3.5",
+        model="gpt-4",
         messages=[{"role": "system", "content": "You are a professional content writer."},
                   {"role": "user", "content": prompt}],
         max_tokens=1500
     )
     # access the content safely
     content = response.choices[0].message['content']
+    print(content)
     return content.strip()
 
 def post_to_wordpress(api_config, generate_title, article):

@@ -678,7 +678,7 @@ def post_update_view(request):
     messages = []
 
     if request.method == 'POST':
-        post_urls = request.POST.get('post_urls').splitlines()  # Assuming multiple URLs, one per line
+        post_urls = request.POST.get('post_urls').splitlines() 
         excel_file = request.FILES.get('excel_file')
 
         if excel_file:
