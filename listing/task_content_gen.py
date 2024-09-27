@@ -102,7 +102,7 @@ def process_site(second_column_data, api_config_site, map_iframe):
     target_url = second_column_data.get('target_ur_single')
     
     # Fetch or create the site record
-    site_record, created = SiteRecordContentGen.objects.get_or_create(site_name=api_config_site)
+    site_record, created = SiteRecordContentGen.objects.get_or_create(site_name=api_config_site.website)
 
     # Check if the target URL already exists in the business_domains list
     if target_url in site_record.business_domains:
