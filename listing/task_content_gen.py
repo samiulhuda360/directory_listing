@@ -205,7 +205,7 @@ def post_to_wordpress(api_config, generate_title, article):
     
     # Post data payload
     post_data = {
-        'title': generate_title,
+        'title': generate_title.strip('“').strip('”'),
         'content': article,
         'status': 'draft'
     }
