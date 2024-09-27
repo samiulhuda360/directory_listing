@@ -102,14 +102,14 @@ def process_site(second_column_data, api_config_site, map_iframe):
     phone = second_column_data.get('phone_single')
     target_url = second_column_data.get('target_ur_single')
     
-    
     # Fetch or create the site record
     site_record, created = SiteRecordContentGen.objects.get_or_create(site_name=api_config_site)
 
     # Check if the target URL already exists in the business_domains list
     if target_url in site_record.business_domains:
         print(f"Target URL {target_url} already exists for {api_config_site}, skipping posting.")
-        return False  
+        return False, None  # Ensure to return a tuple
+
     print(f"Start to post on {api_config_site}")
     # Generate article using OpenAI
     generate_title = generate_article(generate_prompt_for_title(city, state, zip_code))
@@ -118,9 +118,9 @@ def process_site(second_column_data, api_config_site, map_iframe):
     print(prompt)
     article = generate_article(prompt)
 
-
     # Post article to WordPress using the APIConfig model
     status_code, response_or_posted_url = post_to_wordpress(api_config_site, generate_title, article)
+
     # If post to WordPress is successful (201), update the SiteRecordContentGen
     if status_code == 201:
         # Append the new target_url to business_domains and save
