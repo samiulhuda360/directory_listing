@@ -21,8 +21,8 @@ import requests
 from django.core.exceptions import ValidationError
 from django.http import HttpResponseRedirect
 from django.urls import reverse
-from .task_content_gen import process_xls_file
-
+from .task_content_gen import process_xls_file_incrementally
+import tempfile
 
 
 logger = logging.getLogger(__name__)
@@ -718,27 +718,66 @@ def post_update_view(request):
 
     return render(request, 'listing/post_update.html')
 
-
+@login_required
 def content_gen_view(request):
     if request.method == 'POST':
-        # Get the uploaded file
         xlsx_file = request.FILES.get('xlsx_file')
-        num_sites = int(request.POST.get('num_sites', 1))
+        num_sites = request.POST.get('num_sites', '1')
+
+        try:
+            num_sites = int(num_sites)
+            if num_sites < 1:
+                return JsonResponse({'status': 'error', 'message': 'Number of sites must be at least 1.'}, status=400)
+        except ValueError:
+            return JsonResponse({'status': 'error', 'message': 'Invalid number of sites.'}, status=400)
 
         if xlsx_file:
-            # Call the function to process the XLS file
             try:
-                posted_urls = process_xls_file(xlsx_file, num_sites)
+                with tempfile.NamedTemporaryFile(suffix='.xlsx', dir='/app/tempfiles', delete=False) as temp_file:
+                    for chunk in xlsx_file.chunks():
+                        temp_file.write(chunk)
+                    temp_file_path = temp_file.name
+
+                # Log the file path for debugging
+                logger.info(f"Temporary file created at: {temp_file_path}")
+
+                # Call the Celery task
+                task = process_xls_file_incrementally.delay(temp_file_path, num_sites)
+                
                 return JsonResponse({
                     'status': 'success',
-                    'message': 'File uploaded and processed successfully.',
-                    'posted_urls': posted_urls  # Include the posted URLs in the response
+                    'message': 'File is being processed. Check the status later.',
+                    'task_id': task.id
                 })
             except Exception as e:
-                print(f"Error during file processing: {str(e)}")
-                return JsonResponse({'status': 'error', 'message': f'File processing error: {str(e)}'}, status=500)
+                return JsonResponse({'status': 'error', 'message': f'An error occurred: {str(e)}'}, status=500)
         else:
             return JsonResponse({'status': 'error', 'message': 'No file uploaded.'}, status=400)
 
     return render(request, 'listing/content_generation.html')
 
+
+@login_required
+def content_gen_status_view(request, task_id):
+    result = AsyncResult(task_id)  # Create an AsyncResult instance with the task ID
+
+    if result.state == 'PENDING':
+        response = {
+            'state': result.state,
+            'progress': 0,
+            'result': None
+        }
+    elif result.state != 'FAILURE':
+        response = {
+            'state': result.state,
+            'progress': 100,
+            'result': result.result  # Get the result if successful
+        }
+    else:
+        response = {
+            'state': result.state,
+            'progress': 100,
+            'result': str(result.info),  # Get the error message if failed
+        }
+
+    return JsonResponse(response)  # Return the status and result as JSON

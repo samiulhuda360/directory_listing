@@ -1,3 +1,4 @@
+from celery import shared_task
 import pandas as pd
 import openai
 import requests
@@ -7,6 +8,9 @@ from django.conf import settings
 from .models import OpenAI_APIKeyConfig, SiteRecordContentGen
 import os
 from django.core.exceptions import ObjectDoesNotExist
+from openpyxl.utils.exceptions import InvalidFileException
+import logging
+
 
 def get_openai_api_key():
     try:
@@ -25,68 +29,79 @@ def get_openai_api_key():
 # Set the OpenAI API key
 openai.api_key = get_openai_api_key()
 
-def process_xls_file(file, num_sites):
-    # Ensure the 'tmp/' directory exists
-    tmp_dir = 'tmp/'
-    if not os.path.exists(tmp_dir):
-        os.makedirs(tmp_dir)
 
-    # Save the uploaded file temporarily
-    file_path = default_storage.save(os.path.join(tmp_dir, file.name), file)
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-    # Check if the file exists before proceeding
-    full_file_path = default_storage.path(file_path)
-    if not os.path.exists(full_file_path):
+@shared_task(queue='xls_queue')
+def process_xls_file_incrementally(file_path, num_sites):
+    # Check if the file exists
+    if not os.path.exists(file_path):
+        logger.warning(f"File not found: {file_path}")
         return []
 
-    # Load the file using pandas
-    df = pd.read_excel(full_file_path, header=None, engine='openpyxl')
+    # Validate the file extension
+    valid_extensions = ['.xlsx', '.xlsm', '.xltx', '.xltm']
+    if not any(file_path.endswith(ext) for ext in valid_extensions):
+        logger.warning(f"Invalid file format: {file_path}. Supported formats are: {valid_extensions}")
+        return []
 
-    # Set the first column as index (for variable names or something else)
-    df = df.set_index(0)
+    try:
+        # Load the Excel file into a DataFrame
+        logger.info(f"Loading Excel file: {file_path}")
+        df = pd.read_excel(file_path, header=None, engine='openpyxl')
+        logger.info("Excel file loaded successfully.")
 
-    # Extract the second column (B column in Excel)
-    second_column_data = df[1]  # Extracting column B
+        # Set the first column as the index and extract required columns
+        df.set_index(0, inplace=True)
+        second_column_data = df[1]
+        column_c_data = df[2].dropna().tolist()
 
-    # Extract the data from the third column (C column in Excel, index 2)
-    column_c_data = df[2].dropna().tolist()  # Drop blank rows and convert to list
+        # Fetch enabled API config sites
+        api_config_sites = APIConfig.objects.filter(site_enable=True)
+        posted_urls = []
+        successful_postings = 0
+        total_sites_processed = 0
 
-    # Fetch all enabled sites from API configuration
-    api_config_sites = APIConfig.objects.filter(site_enable=True)
+        logger.info("Starting to process sites.")
+        while successful_postings < num_sites:
+            if total_sites_processed >= len(api_config_sites):
+                logger.info("All enabled sites have been processed.")
+                break
 
-    # List to store posted URLs
-    posted_urls = []
-    
-    successful_postings = 0  # Initialize a counter for successful postings
-    total_sites_processed = 0  # Counter to track processed sites
+            # Get current API config site
+            api_config_site = api_config_sites[total_sites_processed]
+            map_iframe = column_c_data[total_sites_processed % len(column_c_data)] if column_c_data else None
 
-    while successful_postings < num_sites:
-        # If all sites have been processed, stop
-        if total_sites_processed >= len(api_config_sites):
-            print("All enabled sites have been processed.")
-            break
+            # Process the site and get the result
+            success, posted_url = process_site(second_column_data, api_config_site, map_iframe)
 
-        # Get the current site from the API config
-        api_config_site = api_config_sites[total_sites_processed]
+            if success:
+                posted_urls.append(posted_url)
+                logger.info(f"Posting successful for {api_config_site.website}.")
+                successful_postings += 1
+            else:
+                logger.info(f"Posting skipped for {api_config_site.website}.")
 
-        map_iframe = column_c_data[total_sites_processed % len(column_c_data)] if column_c_data else None  
-        
-        success, posted_url = process_site(second_column_data, api_config_site, map_iframe)   
+            total_sites_processed += 1
 
-        # Process the site and check if successful
-        if success:
-            posted_urls.append(posted_url)
-            print(f"Posting successful for {api_config_site.website}.")
-            successful_postings += 1  # Increment the successful postings counter
-        else:
-            print(f"Posting skipped for {api_config_site.website}.")
+        logger.info(f"Total successful postings: {successful_postings} out of {total_sites_processed}.")
+        logger.info(f"Posted URLs: {posted_urls}")
 
-        total_sites_processed += 1  # Increment the total sites processed counter
+    except InvalidFileException as e:
+        logger.error(f"Invalid file error: {e}")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred: {e}")
 
-    # After the loop, you can print the total number of successful postings
-    print(f"Total successful postings: {successful_postings} out of {total_sites_processed}.")     
-    print(posted_urls)
-    return posted_urls 
+    finally:
+        # Clean up the temporary file
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            logger.info(f"Temporary file {file_path} deleted.")
+
+    return posted_urls
+
 
 
 def process_site(second_column_data, api_config_site, map_iframe):
@@ -113,7 +128,6 @@ def process_site(second_column_data, api_config_site, map_iframe):
     # Generate article using OpenAI
     generate_title = generate_article(generate_prompt_for_title(city, state, zip_code))
     prompt = generate_prompt_for_content(city, state, zip_code, keywords_list, services_provide_list, business_name, street_address, phone, target_url, map_iframe)
-    print("Title: ", generate_title)
     article = generate_article(prompt)
 
     # Post article to WordPress using the APIConfig model
@@ -150,7 +164,6 @@ def generate_prompt_for_content(city, state, zip_code, keywords_list, services_p
     """
     # Combine city, state, and zip code for full location reference
     city_state_zip = f"{city}, {state} {zip_code}"
-    print(city_state_zip)
     
     # Return the structured OpenAI prompt for content
     return f"""

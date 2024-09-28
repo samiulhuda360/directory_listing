@@ -4,8 +4,6 @@ services:
   redis:
     image: "redis:alpine"
     command: redis-server --maxmemory 150mb --maxmemory-policy allkeys-lru
-    # ports:
-    #   - "6379:6379"
 
   web:
     build: .
@@ -13,7 +11,8 @@ services:
     volumes:
       - .:/app
       - static_volume:/app/staticfiles
-    environment: # Added for only internal communication
+      - temp_volume:/app/tempfiles  # Add this line
+    environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:
@@ -28,10 +27,20 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - web
-
   celery:
     build: .
-    command: celery -A directory_listing worker --loglevel=info
+    command: celery -A directory_listing worker --loglevel=info --concurrency=1 --queues=xls_queue
+    volumes:
+      - .:/app
+      - temp_volume:/app/tempfiles  # Mount volume for temp files
+    depends_on:
+      - web
+      - redis
+
+  # General worker for other tasks
+  celery_general:
+    build: .
+    command: celery -A directory_listing worker --loglevel=info --concurrency=4  # General task worker
     volumes:
       - .:/app
     depends_on:
@@ -40,3 +49,4 @@ services:
 
 volumes:
   static_volume:
+  temp_volume:  # Add this volume for temporary files

@@ -18,6 +18,7 @@
         <button type="submit" class="btn btn-primary">Submit</button>
     </form>
     <div id="result-message" class="mt-3"></div>
+    <ul id="result-list" class="mt-3"></ul>
 </div>
 
 <script>
@@ -25,8 +26,9 @@
         $('#upload-form').on('submit', function(event) {
             event.preventDefault(); // Prevent the default form submission
             $('#result-message').html('<p class="text-info">Processing... Please wait.</p>'); // Show processing message
+            $('#result-list').empty(); // Clear any previous results
             var formData = new FormData(this); // Get form data
-
+    
             $.ajax({
                 url: "{% url 'content_gen' %}",  // Update this URL to match your Django URL pattern
                 type: 'POST',
@@ -34,26 +36,55 @@
                 contentType: false,
                 processData: false,
                 success: function(response) {
-                    // Show success message
+                    console.log(response); // Log the response for debugging
                     $('#result-message').html('<p class="text-success">' + response.message + '</p>');
                     
-                    // If you want to display posted URLs, you can append them here
-                    if (response.posted_urls && response.posted_urls.length > 0) {
-                        var urlsHtml = '<ul>';
-                        response.posted_urls.forEach(function(url) {
-                            urlsHtml += '<li>' + url + '</li>';
-                        });
-                        urlsHtml += '</ul>';
-                        $('#result-message').append(urlsHtml); // Add the posted URLs to the message
+                    // Check if the task_id is provided in the response
+                    if (response.status === 'success' && response.task_id) {
+                        checkTaskStatus(response.task_id); // Start checking the task status
                     }
                 },
                 error: function(response) {
-                    // Show error message
-                    $('#result-message').html('<p class="text-danger">' + response.responseJSON.message + '</p>');
+                    console.error(response); // Log the full response object
+                    $('#result-message').html('<p class="text-danger">' + (response.responseJSON.message || 'Unknown error') + '</p>');
                 }
             });
         });
+    
+        function checkTaskStatus(taskId) {
+            $.ajax({
+                url: '/api/content-gen-status/' + taskId + '/',  // Endpoint to check task status
+                type: 'GET',
+                success: function(response) {
+                    console.log('Task Status Response:', response);  // Debugging log
+                    if (response.state === 'PENDING') {
+                        // Continue checking every 2 seconds if task is still pending
+                        setTimeout(function() {
+                            checkTaskStatus(taskId);
+                        }, 2000);
+                    } else if (response.state === 'SUCCESS') {
+                        // If task completed and result is an array of URLs
+                        console.log('Task Result:', response.result);  // Debugging log
+                        
+                        if (Array.isArray(response.result)) {
+                            response.result.forEach(function(item) {
+                                $('#result-list').append('<li>Task completed: <a href="' + item + '" target="_blank">' + item + '</a></li>');
+                            });
+                        } else {
+                            $('#result-message').html('<p class="text-danger">Unexpected result format.</p>');
+                        }
+                    } else {
+                        $('#result-message').html('<p class="text-danger">Task failed: ' + response.result + '</p>');
+                    }
+                },
+                error: function() {
+                    $('#result-message').html('<p class="text-danger">Error checking task status.</p>');
+                }
+            });
+        }
     });
 </script>
+
+
 
 {% endblock %}

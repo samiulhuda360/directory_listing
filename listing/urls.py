@@ -15,6 +15,7 @@ urlpatterns = [
     path('site-data/', views.site_data, name='site_data'),
     path('rest-api-test/', views.rest_api_test, name='rest_api_test'),
     path('content-gen/', views.content_gen_view, name='content_gen'),
+    path('api/content-gen-status/<str:task_id>/', views.content_gen_status_view, name='content_gen_status'),
     path('delete-links/', views.delete_posts, name='delete_posts'),
     path('check_delete_status/', views.check_delete_task_status, name='check_delete_status'),
     path('test-status-update/', views.test_status_update, name='test_status_update'),  # URL pattern for AJAX request
