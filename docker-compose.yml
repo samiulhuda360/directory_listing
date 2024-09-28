@@ -40,7 +40,7 @@ services:
   # General worker for other tasks
   celery_general:
     build: .
-    command: celery -A directory_listing worker --loglevel=info --concurrency=4  # General task worker
+    command: celery -A directory_listing worker --loglevel=info
     volumes:
       - .:/app
     depends_on:
