@@ -124,11 +124,9 @@ def process_xls_file_incrementally(self, file_path, num_sites, avoid_root_domain
                   # Get a unique filename
                 unique_filename = get_unique_filename(f"{original_filename}_url_lists.xlsx", output_dir)
                 output_file_path = os.path.join(output_dir, unique_filename)
-                logger.info(f"Output File Path: {output_file_path}")
                 save_posted_urls_to_excel(posted_urls, output_file_path)
 
                 logger.info(f"Excel file with posted URLs created at: {output_file_path}")
-                logger.info(f"Posted URLs: {posted_urls}")
 
                 self.update_state(state='SUCCESS', meta={
                     'result': posted_urls,  
