@@ -26,8 +26,7 @@ def get_openai_api_key():
     except Exception as e:
         # Log the exception (optional)
         print(f"Database error: {e}")
-        # Fallback to the hardcoded API key
-        return "XXXXX"
+        raise e  # Reraise the exception instead of returning a hardcoded key
 
 # Set the OpenAI API key
 openai.api_key = get_openai_api_key()
