@@ -590,7 +590,7 @@ def delete_from_wordpress(site_url, username, app_password, post_id):
         return None  # Or return an appropriate response indicating a connection error
     
 
-@shared_task(bind=True)  # bind the task to have self parameter for retry etc.
+@shared_task(bind=True) 
 def perform_test_task(self, config_id):
     try:
         from .models import APIConfig, TestResult  # Import here to avoid circular import

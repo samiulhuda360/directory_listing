@@ -10,7 +10,10 @@ import os
 from django.core.exceptions import ObjectDoesNotExist
 from openpyxl.utils.exceptions import InvalidFileException
 import logging
-
+from celery.utils.log import get_task_logger
+from urllib.parse import urlparse
+from celery.exceptions import Ignore
+import time
 
 def get_openai_api_key():
     try:
@@ -24,30 +27,56 @@ def get_openai_api_key():
         # Log the exception (optional)
         print(f"Database error: {e}")
         # Fallback to the hardcoded API key
-        return "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"
+        return "XXXXX"
 
 # Set the OpenAI API key
 openai.api_key = get_openai_api_key()
+
+def get_root_domain(url):
+    """Extract the root domain from a given URL."""
+    parsed_url = urlparse(url)
+    return parsed_url.netloc
+
+def get_unique_filename(original_filename, output_dir):
+    """
+    Generate a unique filename by appending _1, _2, etc., if a file with the same name exists.
+    """
+    base_name, ext = os.path.splitext(original_filename)
+    counter = 1
+    new_filename = original_filename
+
+    while os.path.exists(os.path.join(output_dir, new_filename)):
+        new_filename = f"{base_name}_{counter}{ext}"
+        counter += 1
+
+    return new_filename
+
 
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-@shared_task(queue='xls_queue')
-def process_xls_file_incrementally(file_path, num_sites):
-    # Check if the file exists
-    if not os.path.exists(file_path):
-        logger.warning(f"File not found: {file_path}")
-        return []
+@shared_task(bind=True)
+def process_xls_file_incrementally(self, file_path, num_sites, avoid_root_domain, original_filename):
+    logger.info(f"Starting task with avoid_root_domain: {avoid_root_domain}")
+    logger.info(f"Starting task process_xls_file_incrementally with file_path: {file_path}, num_sites: {num_sites}")
 
-    # Validate the file extension
-    valid_extensions = ['.xlsx', '.xlsm', '.xltx', '.xltm']
-    if not any(file_path.endswith(ext) for ext in valid_extensions):
-        logger.warning(f"Invalid file format: {file_path}. Supported formats are: {valid_extensions}")
-        return []
+    output_file_path = None  # Initialize output_file_path
 
     try:
+        # Check if the file exists
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        # Validate the file extension
+        valid_extensions = ['.xlsx', '.xlsm', '.xltx', '.xltm']
+        if not any(file_path.endswith(ext) for ext in valid_extensions):
+            raise ValueError(f"Invalid file format: {file_path}. Supported formats are: {valid_extensions}")
+
+        posted_urls = []
+        successful_postings = 0
+
         # Load the Excel file into a DataFrame
         logger.info(f"Loading Excel file: {file_path}")
         df = pd.read_excel(file_path, header=None, engine='openpyxl')
@@ -60,75 +89,114 @@ def process_xls_file_incrementally(file_path, num_sites):
 
         # Fetch enabled API config sites
         api_config_sites = APIConfig.objects.filter(site_enable=True)
-        posted_urls = []
-        successful_postings = 0
-        total_sites_processed = 0
+        logger.info(f"Found {len(api_config_sites)} enabled API config sites.")
 
+        total_sites_processed = len(api_config_sites)
         logger.info("Starting to process sites.")
-        while successful_postings < num_sites:
-            if total_sites_processed >= len(api_config_sites):
-                logger.info("All enabled sites have been processed.")
-                break
 
-            # Get current API config site
-            api_config_site = api_config_sites[total_sites_processed]
-            map_iframe = column_c_data[total_sites_processed % len(column_c_data)] if column_c_data else None
+        for i, api_config_site in enumerate(api_config_sites):
+            time.sleep(10)  # Simulating delay
+            if successful_postings >= num_sites:
+                break
+            
+            map_iframe = column_c_data[i % len(column_c_data)] if column_c_data else None
 
             # Process the site and get the result
-            success, posted_url = process_site(second_column_data, api_config_site, map_iframe)
+            success, posted_url = process_site(second_column_data, api_config_site, map_iframe, avoid_root_domain)
 
-            if success:
+            if success and posted_url:  # Ensure success and posted_url are valid
                 posted_urls.append(posted_url)
-                logger.info(f"Posting successful for {api_config_site.website}.")
+                logger.info(f"Posting successful for {api_config_site.website}. Posted URL: {posted_url}")
                 successful_postings += 1
+
+                self.update_state(state='single_post_done', meta={
+                    'current': successful_postings,
+                    'total': num_sites,
+                    'posted_urls': posted_urls,
+                    'last_posted_url': posted_url
+                })
             else:
                 logger.info(f"Posting skipped for {api_config_site.website}.")
 
-            total_sites_processed += 1
+        if successful_postings > 0:
+                output_dir = os.path.join(settings.MEDIA_ROOT, 'GEO_output_folder')
+                os.makedirs(output_dir, exist_ok=True)
+                  # Get a unique filename
+                unique_filename = get_unique_filename(f"{original_filename}_url_lists.xlsx", output_dir)
+                output_file_path = os.path.join(output_dir, unique_filename)
+                logger.info(f"Output File Path: {output_file_path}")
+                save_posted_urls_to_excel(posted_urls, output_file_path)
 
-        logger.info(f"Total successful postings: {successful_postings} out of {total_sites_processed}.")
-        logger.info(f"Posted URLs: {posted_urls}")
+                logger.info(f"Excel file with posted URLs created at: {output_file_path}")
+                logger.info(f"Posted URLs: {posted_urls}")
 
-    except InvalidFileException as e:
-        logger.error(f"Invalid file error: {e}")
+                self.update_state(state='SUCCESS', meta={
+                    'result': posted_urls,  
+                    'successful_postings': successful_postings,
+                    'file_path': output_file_path
+                })
+        else:
+            self.update_state(state='FAILURE', meta={'error': "No successful postings."})
+
+        
+        return posted_urls
+
     except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}")
-
-    finally:
-        # Clean up the temporary file
-        if os.path.exists(file_path):
-            os.remove(file_path)
-            logger.info(f"Temporary file {file_path} deleted.")
-
-    return posted_urls
+        logger.error(f"An error occurred: {str(e)}", exc_info=True)
+        self.update_state(state='FAILURE', meta={
+            'exc_type': type(e).__name__,
+            'error': str(e),
+        })
+        raise Ignore()  
 
 
+def save_posted_urls_to_excel(posted_urls, output_file_path):
+    """Save the list of posted URLs to an Excel file."""
+    df = pd.DataFrame(posted_urls, columns=['Posted URL'])
+    df.to_excel(output_file_path, index=False, engine='openpyxl')
+    return output_file_path  # Return the file path
 
-def process_site(second_column_data, api_config_site, map_iframe):
-    # Extract required fields from the dataframe
-    city = second_column_data.get('city_single')
-    state = second_column_data.get('state_single')
-    zip_code = second_column_data.get('zip_single')
-    keywords_list = second_column_data.get('keywords_list')
-    services_provide_list = second_column_data.get('services_provide_list')
-    business_name = second_column_data.get('business_name_single')
-    street_address = second_column_data.get('street_address_single')
-    phone = second_column_data.get('phone_single')
-    target_url = second_column_data.get('target_ur_single')
-    
+
+
+def process_site(second_column_data, api_config_site, map_iframe, avoid_root_domain):
+    # Extract required fields from the dataframe safely
+    city = second_column_data.get('city_single', '')
+    state = second_column_data.get('state_single', '')
+    zip_code = second_column_data.get('zip_single', '')
+    keywords_list = second_column_data.get('keywords_list', [])
+    services_provide_list = second_column_data.get('services_provide_list', [])
+    business_name = second_column_data.get('business_name_single', '')
+    street_address = second_column_data.get('street_address_single', '')
+    phone = second_column_data.get('phone_single', '')
+    target_url = second_column_data.get('target_url_single', '')
+
     # Fetch or create the site record
     site_record, created = SiteRecordContentGen.objects.get_or_create(site_name=api_config_site.website)
 
-    # Check if the target URL already exists in the business_domains list
-    if target_url in site_record.business_domains:
-        print(f"Target URL {target_url} already exists for {api_config_site}, skipping posting.")
-        return False, None  # Ensure to return a tuple
+    # Simplified check for root domain matching
+    if avoid_root_domain:
+        # Get root domain of the target URL
+        target_root_domain = get_root_domain(target_url)
+        
+        # Loop through business_domains and check root domains
+        for domain in site_record.business_domains:
+            if get_root_domain(domain) == target_root_domain:
+                logger.warning(f"Root domain {target_root_domain} already exists for {api_config_site}, skipping posting.")
+                return False, None
+    else:
+        # Regular check for exact target URL in business_domains
+        if target_url in site_record.business_domains:
+            logger.warning(f"Target URL {target_url} already exists for {api_config_site}, skipping posting.")
+            return False, None
 
-    print(f"Start to post on {api_config_site}")
+    logger.info(f"Start to post on {api_config_site.website}")
     # Generate article using OpenAI
-    generate_title = generate_article(generate_prompt_for_title(city, state, zip_code))
+    # generate_title = generate_article(generate_prompt_for_title(city, state, zip_code))
+    generate_title = "TE$T TITLE"
     prompt = generate_prompt_for_content(city, state, zip_code, keywords_list, services_provide_list, business_name, street_address, phone, target_url, map_iframe)
-    article = generate_article(prompt)
+    # article = generate_article(prompt)
+    article = "TEST CONTENT"
+
 
     # Post article to WordPress using the APIConfig model
     status_code, response_or_posted_url = post_to_wordpress(api_config_site, generate_title, article)
@@ -138,12 +206,35 @@ def process_site(second_column_data, api_config_site, map_iframe):
         # Append the new target_url to business_domains and save
         site_record.business_domains.append(target_url)
         site_record.save()
-        print(f"Updated SiteRecordContentGen for {api_config_site} with new domain: {target_url}")
-        return True, response_or_posted_url  # Return success and the posted URL
+        logger.info(f"Updated SiteRecordContentGen for {api_config_site} with new domain: {target_url}")
+        return True, response_or_posted_url
     else:
-        print(f"Failed to post to WordPress. Status code: {status_code}, response: {response_or_posted_url if response_or_posted_url else 'No response received'}")
-        return False, response_or_posted_url if response_or_posted_url else 'No response'  # Return failure and error message
+        logger.error(f"Failed to post to WordPress. Status code: {status_code}, response: {response_or_posted_url}")
+        return False, response_or_posted_url if response_or_posted_url else 'No response'
 
+
+def post_to_wordpress(api_config, generate_title, article):
+    # Define the WordPress REST API endpoint and authentication
+    wp_url = f"https://{api_config.website}/wp-json/wp/v2/posts"
+    auth = (api_config.user, api_config.password)
+    
+    # Post data payload
+    post_data = {
+        'title': generate_title.strip('“').strip('”') if generate_title else "Untitled",
+        'content': article,
+        'status': 'draft'
+    }
+
+    # Send POST request to WordPress
+    try:
+        response = requests.post(wp_url, json=post_data, auth=auth)
+        response.raise_for_status()  # Raise an error for bad responses
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to create post: {e}")
+        return 500, str(e)
+
+    logger.info(f"Post created successfully: {response.json()['link']}")
+    return 201, response.json()['link']
 
 
 def generate_prompt_for_title(city, state, zip_code):
@@ -207,26 +298,4 @@ def generate_article(prompt):
     # access the content safely
     content = response.choices[0].message['content']
     return content.strip()
-
-def post_to_wordpress(api_config, generate_title, article):
-    # Define the WordPress REST API endpoint and authentication
-    wp_url = f"https://{api_config}/wp-json/wp/v2/posts"
-    auth = (api_config.user, api_config.password)
-    
-    # Post data payload
-    post_data = {
-        'title': generate_title.strip('“').strip('”'),
-        'content': article,
-        'status': 'publish'
-    }
-
-    # Send POST request to WordPress
-    response = requests.post(wp_url, json=post_data, auth=auth)
-
-    if response.status_code == 201:
-        print(f"Post created successfully: {response.json()['link']}")
-        return 201, response.json()['link']
-    else:
-        print(f"Failed to create post: {response.content}")
-        return response.status_code, response.content
 

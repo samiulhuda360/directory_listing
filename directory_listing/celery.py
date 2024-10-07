@@ -14,11 +14,3 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 
 # Load task modules from all registered Django app configs.
 app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)
-
-# Define custom queue for xls tasks
-app.conf.task_queues = {
-    'xls_queue': {
-        'exchange': 'xls_exchange',
-        'routing_key': 'xls.process',
-    },
-}

@@ -23,6 +23,8 @@ from django.http import HttpResponseRedirect
 from django.urls import reverse
 from .task_content_gen import process_xls_file_incrementally
 import tempfile
+from django.views.decorators.cache import never_cache
+
 
 
 logger = logging.getLogger(__name__)
@@ -675,10 +677,11 @@ def flash_posted_website(request):
 
 @login_required
 def post_update_view(request):
-    messages = []
+    logger.info("Entered post_update_view")
+    messages_list = []
 
     if request.method == 'POST':
-        post_urls = request.POST.get('post_urls').splitlines() 
+        post_urls = request.POST.get('post_urls').splitlines()
         excel_file = request.FILES.get('excel_file')
 
         if excel_file:
@@ -686,10 +689,13 @@ def post_update_view(request):
                 wb = openpyxl.load_workbook(excel_file, data_only=True)
                 sheet = wb.active
                 second_row = sheet[2]
-                row_values = [cell.value for cell in second_row]
+                row_values = [cell.value for cell in second_row if cell.value is not None]
             except Exception as e:
-                messages.append({'tags': 'error', 'message': f"Failed to read Excel file: {str(e)}"})
-                return render(request, 'listing/post_update.html', {'messages': messages})
+                logger.error(f"Failed to read Excel file: {str(e)}")
+                messages_list.append({'tags': 'error', 'message': f"Failed to read Excel file: {str(e)}"})
+                return render(request, 'listing/post_update.html', {'messages': messages_list})
+
+            task_ids = []
 
             for post_url in post_urls:
                 parsed_url = urlparse(post_url)
@@ -698,31 +704,96 @@ def post_update_view(request):
                 try:
                     config = APIConfig.objects.get(website__icontains=domain)
                 except APIConfig.DoesNotExist:
-                    messages.append({'tags': 'error', 'message': f"No API configuration found for domain: {domain}"})
+                    logger.error(f"No API configuration found for domain: {domain}")
+                    messages_list.append({'tags': 'error', 'message': f"No API configuration found for domain: {domain}"})
                     continue
 
                 post_id = find_post_id_by_url(domain, post_url, config.user, config.password)
                 if post_id is None:
-                    messages.append({'tags': 'error', 'message': f"Post with URL '{post_url}' not found."})
+                    logger.error(f"Post with URL '{post_url}' not found.")
+                    messages_list.append({'tags': 'error', 'message': f"Post with URL '{post_url}' not found."})
                     continue
 
                 json_url = f"https://{domain}/wp-json/wp/v2/posts/{post_id}"
 
-                # Call the update function and capture the status and message
-                status, message = update_company_profile_post(row_values, json_url, config.website, config.user, config.password, config.template_no, post_id)
-                
-                # Append the message to the messages list with appropriate tag
-                messages.append({'tags': status, 'message': message})
+                # Trigger the task asynchronously using delay() or apply_async()
+                task = update_company_profile_post.delay(
+                    row_values=row_values,
+                    json_url=json_url,
+                    website=config.website,
+                    user=config.user,
+                    password=config.password,
+                    html_template=config.template_no
+                )
+                task_ids.append(task.id)
 
-        return render(request, 'listing/post_update.html', {'messages': messages})
+            messages_list.append({'tags': 'info', 'message': f"Tasks started. Task IDs: {task_ids}"})
+
+            logger.info(f"All tasks queued. Task IDs: {task_ids}")
+            return render(request, 'listing/post_update.html', {
+                'messages': messages_list,
+                'task_ids': task_ids  
+            })
 
     return render(request, 'listing/post_update.html')
 
+
+
+@login_required
+def check_task_status_post_update(request, task_id):
+    logger.info(f"Checking status for task: {task_id}")
+    task_result = AsyncResult(task_id)
+
+    if task_result.state == 'PENDING':
+        logger.info(f"Task {task_id} is still pending")
+        return JsonResponse({
+            'task_id': task_id,
+            'state': 'PENDING',
+            'info': 'Task is queued or waiting to be picked up by a worker.'
+        })
+    elif task_result.state == 'STARTED':
+        logger.info(f"Task {task_id} has started")
+        return JsonResponse({
+            'task_id': task_id,
+            'state': 'STARTED',
+            'info': 'Task has been picked up by a worker and is currently running.'
+        })
+    elif task_result.state == 'RETRY':
+        logger.info(f"Task {task_id} is being retried")
+        return JsonResponse({
+            'task_id': task_id,
+            'state': 'RETRY',
+            'info': 'Task encountered an error and is being retried.'
+        })
+    elif task_result.state == 'FAILURE':
+        logger.error(f"Task {task_id} failed: {task_result.result}")
+        return JsonResponse({
+            'task_id': task_id,
+            'state': 'FAILURE',
+            'info': str(task_result.result)
+        })
+    elif task_result.state == 'SUCCESS':
+        logger.info(f"Task {task_id} completed successfully: {task_result.result}")
+        result = task_result.result
+        return JsonResponse({
+            'task_id': task_id,
+            'state': 'SUCCESS',
+            'info': result.get('message', 'Task completed successfully.'),
+            'status': result.get('status', 'success')
+        })
+    else:
+        logger.warning(f"Task {task_id} is in an unexpected state: {task_result.state}")
+        return JsonResponse({
+            'task_id': task_id,
+            'state': task_result.state,
+            'info': 'Task is in an unexpected state.'
+        })
 @login_required
 def content_gen_view(request):
     if request.method == 'POST':
         xlsx_file = request.FILES.get('xlsx_file')
         num_sites = request.POST.get('num_sites', '1')
+        avoid_root_domain = request.POST.get('avoid_root_domain') == 'on'  # Check if the checkbox is checked
 
         try:
             num_sites = int(num_sites)
@@ -741,43 +812,134 @@ def content_gen_view(request):
                 # Log the file path for debugging
                 logger.info(f"Temporary file created at: {temp_file_path}")
 
+                # You need to pass original_filename to the task
+                original_filename = xlsx_file.name.rsplit('.', 1)[0]
                 # Call the Celery task
-                task = process_xls_file_incrementally.delay(temp_file_path, num_sites)
-                
+                task = process_xls_file_incrementally.delay(temp_file_path, num_sites, avoid_root_domain, original_filename)
+
+                # Return a response indicating the task has started
                 return JsonResponse({
-                    'status': 'success',
-                    'message': 'File is being processed. Check the status later.',
-                    'task_id': task.id
+                    'status': 'in_progress',
+                    'task_id': task.id,
+                    'message': 'File is being processed. Check the status later.'
                 })
             except Exception as e:
+                logger.error(f"An error occurred: {str(e)}")
                 return JsonResponse({'status': 'error', 'message': f'An error occurred: {str(e)}'}, status=500)
         else:
             return JsonResponse({'status': 'error', 'message': 'No file uploaded.'}, status=400)
 
+    # If it's a GET request, render the content generation page
     return render(request, 'listing/content_generation.html')
 
 
+
+@never_cache
 @login_required
 def content_gen_status_view(request, task_id):
-    result = AsyncResult(task_id)  # Create an AsyncResult instance with the task ID
+    result = AsyncResult(task_id)
+    logger.info(f"Checking status for task ID: {task_id} - Current state: {result.state}")
 
-    if result.state == 'PENDING':
-        response = {
-            'state': result.state,
-            'progress': 0,
-            'result': None
-        }
-    elif result.state != 'FAILURE':
-        response = {
-            'state': result.state,
-            'progress': 100,
-            'result': result.result  # Get the result if successful
-        }
+    try:
+        if result.state == 'PENDING':
+            response = {
+                'status': 'in_progress',
+                'message': 'Task is pending...',
+            }
+        elif result.state == 'SUCCESS':
+            # Access the result from the meta dictionary
+            meta_data = result.info  # This should contain your meta information
+            urls = meta_data.get('result', []) if isinstance(meta_data.get('result'), list) else []
+            successful_postings = meta_data.get('successful_postings', 0)
+            file_path = meta_data.get('file_path', '')
+
+            response = {
+                'status': 'SUCCESS',
+                'message': 'Task completed successfully.',
+                'result': urls,  # This is now correctly referring to the URLs
+                'successful_postings': successful_postings,
+                'file_path': file_path
+            }
+
+        elif result.state == 'FAILURE':
+            exc_info = result.info
+            error_message = str(exc_info) if exc_info else 'Task failed with no error message available'
+            response = {
+                'status': 'FAILURE',
+                'message': error_message,
+                'exception_type': type(exc_info).__name__ if exc_info else 'Unknown'
+            }
+        elif result.state == 'single_post_done':
+            # Check if result.info has the necessary metadata
+            meta_info = result.info if isinstance(result.info, dict) else {}
+            response = {
+                'status': 'single_post_done',
+                'meta': meta_info,  # This should contain current, total, and last_posted_url
+                'message': 'Single post completed',
+            }
+        else:
+            response = {
+                'status': result.state,
+                'message': 'Unknown task state.',
+            }
+    except Exception as e:
+        logger.error(f"Error retrieving task status: {type(e).__name__} - {str(e)}", exc_info=True)
+        return JsonResponse({'status': 'error', 'message': 'Failed to retrieve task status.'}, status=500)
+
+    return JsonResponse(response)
+
+
+
+
+
+@login_required
+def list_files_geo(request):
+    output_dir = os.path.join(settings.MEDIA_ROOT, 'GEO_output_folder')
+    
+    try:
+        files = os.listdir(output_dir)
+        
+        if not files:
+            return JsonResponse({'status': 'error', 'message': 'No files available.'}, status=404)
+
+        return JsonResponse({'status': 'success', 'files': files})
+
+    except FileNotFoundError:
+        return JsonResponse({'status': 'error', 'message': 'Directory not found.'}, status=404)
+
+
+@login_required
+def download_file_geo(request, file_name):
+    # Construct the full file path
+    file_path = os.path.join(settings.MEDIA_ROOT, 'GEO_output_folder', file_name)
+    
+    # Check if the file exists
+    if os.path.exists(file_path):
+        with open(file_path, 'rb') as file:
+            response = HttpResponse(file.read(), content_type='application/vnd.ms-excel')
+            response['Content-Disposition'] = f'attachment; filename={file_name}'
+            return response
     else:
-        response = {
-            'state': result.state,
-            'progress': 100,
-            'result': str(result.info),  # Get the error message if failed
-        }
+        raise Http404("File not found.")
 
-    return JsonResponse(response)  # Return the status and result as JSON
+@login_required
+def delete_all_files_geo(request):
+    media_subdir = os.path.join(settings.MEDIA_ROOT, 'GEO_output_folder')
+    files = glob.glob(os.path.join(media_subdir, '*.xls'))
+    deleted_files, failed_files = [], []
+
+    for f in files:
+        try:
+            os.remove(f)
+            deleted_files.append(os.path.basename(f))  # Append just the file name
+        except Exception as e:
+            failed_files.append((os.path.basename(f), str(e)))
+
+    if failed_files:
+        return JsonResponse({
+            'status': 'partial_success',
+            'deleted_files': deleted_files,
+            'failed_files': failed_files
+        })
+    
+    return JsonResponse({'status': 'success', 'deleted_files': deleted_files})
