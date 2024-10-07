@@ -189,11 +189,11 @@ def process_site(second_column_data, api_config_site, map_iframe, avoid_root_dom
 
     logger.info(f"Start to post on {api_config_site.website}")
     # Generate article using OpenAI
-    # generate_title = generate_article(generate_prompt_for_title(city, state, zip_code))
-    generate_title = "TE$T TITLE"
+    generate_title = generate_article(generate_prompt_for_title(city, state, zip_code))
+    # generate_title = "TE$T TITLE"
     prompt = generate_prompt_for_content(city, state, zip_code, keywords_list, services_provide_list, business_name, street_address, phone, target_url, map_iframe)
-    # article = generate_article(prompt)
-    article = "TEST CONTENT"
+    article = generate_article(prompt)
+    # article = "TEST CONTENT"
 
 
     # Post article to WordPress using the APIConfig model
@@ -220,7 +220,7 @@ def post_to_wordpress(api_config, generate_title, article):
     post_data = {
         'title': generate_title.strip('“').strip('”') if generate_title else "Untitled",
         'content': article,
-        'status': 'draft'
+        'status': 'publish'
     }
 
     # Send POST request to WordPress
