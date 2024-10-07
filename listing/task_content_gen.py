@@ -87,7 +87,7 @@ def process_xls_file_incrementally(self, file_path, num_sites, avoid_root_domain
         column_c_data = df[2].dropna().tolist()
 
         # Fetch enabled API config sites
-        api_config_sites = APIConfig.objects.filter(site_enable=True)
+        api_config_sites = APIConfig.objects.filter(site_enable=True).order_by('?')
         logger.info(f"Found {len(api_config_sites)} enabled API config sites.")
 
         total_sites_processed = len(api_config_sites)
