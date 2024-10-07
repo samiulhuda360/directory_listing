@@ -19,6 +19,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
+      with:
+        fetch-depth: 0  # Fetch all history for all branches
 
     - name: Set up Python 3.8
       uses: actions/setup-python@v2
@@ -42,7 +44,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
       with:
-        fetch-depth: 0  # Ensures all history is fetched
+        fetch-depth: 0  # Fetch all history for deployment
 
     - name: Deploy to VPS
       uses: appleboy/ssh-action@master
@@ -51,7 +53,6 @@ jobs:
         username: ${{ secrets.VPS_USERNAME }}
         password: ${{ secrets.VPS_PASSWORD }}
         script: |
-          set -e  # Exit immediately if a command exits with a non-zero status
           cd /var/www/directory_listing
           git stash 
           git pull origin main 
