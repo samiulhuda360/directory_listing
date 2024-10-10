@@ -189,6 +189,7 @@ def process_site(second_column_data, api_config_site, map_iframe, avoid_root_dom
     logger.info(f"Start to post on {api_config_site.website}")
     # Generate article using OpenAI
     generate_title = generate_article(generate_prompt_for_title(city, state, zip_code))
+    time.sleep(5)
     # generate_title = "TE$T TITLE"
     prompt = generate_prompt_for_content(city, state, zip_code, keywords_list, services_provide_list, business_name, street_address, phone, target_url, map_iframe)
     article = generate_article(prompt)
