@@ -294,7 +294,7 @@ def generate_prompt_for_content(city, state, zip_code, keywords_list, services_p
 
 client = OpenAI()
 
-@retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
+@retry(wait=wait_random_exponential(min=30, max=150), stop=stop_after_attempt(6))
 def generate_article(prompt):
     response = client.completions.create(
         model="gpt-4o-mini",
@@ -304,4 +304,3 @@ def generate_article(prompt):
     # Access the content safely
     content = response.choices[0].message['content']
     return content.strip()
-
