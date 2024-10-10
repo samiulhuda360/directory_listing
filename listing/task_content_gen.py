@@ -1,6 +1,7 @@
 from celery import shared_task
 import pandas as pd
-import openai
+from openai import OpenAI
+from tenacity import retry, wait_random_exponential, stop_after_attempt
 import requests
 from django.core.files.storage import default_storage
 from .models import APIConfig
@@ -287,26 +288,22 @@ def generate_prompt_for_content(city, state, zip_code, keywords_list, services_p
     **Note:** The article should be formatted with the appropriate HTML tags for WordPress.
     """
 
+client = OpenAI()
+
+@retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
 def generate_article(prompt):
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",  # Ensure this model is available in your plan
-            messages=[
-                {"role": "system", "content": "You are a professional content writer."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=1500  # You can adjust this as needed
-        )
-        # Access the content safely
-        content = response.choices[0].message['content']
-        return content.strip()
-    
-    except openai.error.RateLimitError:
-        logger.error("Rate limit exceeded. Retrying after a delay...")
-        time.sleep(10)  # Delay before retrying
-        return generate_article(prompt)  # Retry the request
+    response = client.completions.create(
+        model="gpt-4o-mini",
+        prompt=prompt,
+        max_tokens=1500  
+    )
+    # Access the content safely
+    content = response.choices[0].message['content']
+    return content.strip()
 
-    except Exception as e:
-        logger.error(f"An error occurred: {e}")
-        return None  # Return None or handle the error as needed
-
+# Example usage
+try:
+    article = generate_article("Once upon a time,")
+    print(article)
+except Exception as e:
+    logger.error(f"Failed to generate article: {e}")
