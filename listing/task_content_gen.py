@@ -94,7 +94,7 @@ def process_xls_file_incrementally(self, file_path, num_sites, avoid_root_domain
         logger.info("Starting to process sites.")
 
         for i, api_config_site in enumerate(api_config_sites):
-            time.sleep(10)  # Simulating delay
+            time.sleep(1)  
             if successful_postings >= num_sites:
                 break
             
@@ -103,7 +103,7 @@ def process_xls_file_incrementally(self, file_path, num_sites, avoid_root_domain
             # Process the site and get the result
             success, posted_url = process_site(second_column_data, api_config_site, map_iframe, avoid_root_domain)
 
-            if success and posted_url:  # Ensure success and posted_url are valid
+            if success and posted_url: 
                 posted_urls.append(posted_url)
                 logger.info(f"Posting successful for {api_config_site.website}. Posted URL: {posted_url}")
                 successful_postings += 1
@@ -299,15 +299,19 @@ def generate_article(prompt):
     client = OpenAI()
     
     # Format the messages for the chat completion
-    messages = [{"role": "user", "content": prompt}] 
+    messages = [{"role": "user", "content": prompt}]  # Add the prompt as a user message
     
     response = client.chat.completions.create(
         model="gpt-4o-mini",  # Keep the specified model name
         messages=messages,
         temperature=1,
         max_tokens=1500,
+        top_p=1,
+        frequency_penalty=0,
+        presence_penalty=0
     )
     
-    # Access the content safely
-    content = response.choices[0].message['content']
+    # Access the content correctly
+    content = response.choices[0].message.content
+    print(content)
     return content.strip()
