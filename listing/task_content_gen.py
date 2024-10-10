@@ -189,21 +189,25 @@ def process_site(second_column_data, api_config_site, map_iframe, avoid_root_dom
 
     logger.info(f"Start to post on {api_config_site.website}")
     # Generate article using OpenAI
+     # Generate article using OpenAI
     generate_title = generate_article(generate_prompt_for_title(city, state, zip_code))
-    logger.warning("Sleeping for 5 Sec")
-    time.sleep(5)
-    # generate_title = "TE$T TITLE"
-    prompt = generate_prompt_for_content(city, state, zip_code, keywords_list, services_provide_list, business_name, street_address, phone, target_url, map_iframe)
-    article = generate_article(prompt)
-    # article = "TEST CONTENT"
-
+    
+    prompt = generate_prompt_for_content(
+        city, state, zip_code, keywords_list, services_provide_list,
+        business_name, street_address, phone, target_url, map_iframe
+    )
+    
+    try:
+        article = generate_article(prompt)
+    except Exception as e:
+        logger.error(f"Failed to generate article: {e}")
+        return False, 'Article generation failed'
 
     # Post article to WordPress using the APIConfig model
     status_code, response_or_posted_url = post_to_wordpress(api_config_site, generate_title, article)
 
     # If post to WordPress is successful (201), update the SiteRecordContentGen
     if status_code == 201:
-        # Append the new target_url to business_domains and save
         site_record.business_domains.append(target_url)
         site_record.save()
         logger.info(f"Updated SiteRecordContentGen for {api_config_site} with new domain: {target_url}")
@@ -301,9 +305,3 @@ def generate_article(prompt):
     content = response.choices[0].message['content']
     return content.strip()
 
-# Example usage
-try:
-    article = generate_article("Once upon a time,")
-    print(article)
-except Exception as e:
-    logger.error(f"Failed to generate article: {e}")
