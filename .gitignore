@@ -158,6 +158,8 @@ cython_debug/
 media/
 media
 tempfiles/
+listing/migrations/
+
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
