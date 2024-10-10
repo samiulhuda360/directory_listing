@@ -288,13 +288,25 @@ def generate_prompt_for_content(city, state, zip_code, keywords_list, services_p
     """
 
 def generate_article(prompt):
-    response = openai.ChatCompletion.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "system", "content": "You are a professional content writer."},
-                  {"role": "user", "content": prompt}],
-        max_tokens=1500
-    )
-    # access the content safely
-    content = response.choices[0].message['content']
-    return content.strip()
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4o-mini",  # Ensure this model is available in your plan
+            messages=[
+                {"role": "system", "content": "You are a professional content writer."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=1500  # You can adjust this as needed
+        )
+        # Access the content safely
+        content = response.choices[0].message['content']
+        return content.strip()
+    
+    except openai.error.RateLimitError:
+        logger.error("Rate limit exceeded. Retrying after a delay...")
+        time.sleep(10)  # Delay before retrying
+        return generate_article(prompt)  # Retry the request
+
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+        return None  # Return None or handle the error as needed
 
