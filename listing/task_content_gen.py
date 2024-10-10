@@ -25,15 +25,14 @@ def get_openai_api_key():
         else:
             raise ValueError("No OpenAI API key found in the database")
     except Exception as e:
-        # Log the exception (optional)
         print(f"Database error: {e}")
-        raise e  # Reraise the exception instead of returning a hardcoded key
+        raise e
+
+os.environ['OPENAI_API_KEY'] = get_openai_api_key()
 
 # Create an instance of the OpenAI client
 client = OpenAI()
 
-# Set the OpenAI API key
-client.api_key = get_openai_api_key()
 
 def get_root_domain(url):
     """Extract the root domain from a given URL."""
