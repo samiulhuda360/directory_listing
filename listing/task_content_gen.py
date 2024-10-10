@@ -267,7 +267,7 @@ def generate_prompt_for_content(city, state, zip_code, keywords_list, services_p
     2. The structure of each article must be as follows:
         a) A 500-word post that talks about the location, points of interest, and notable places around {city_state_zip}. **Do not talk about the company itself.**
         b) A "Member Spotlight" section that includes the Name, Address, Phone (NAP) of the business:
-            - The business name: {business_name}, full address: {street_address}, {city_state_zip}, phone: {phone}, and website (Show Full Website URL): {target_url}.
+            - The business name: {business_name}, full address: {street_address}, {city_state_zip}, phone: {phone}, and website (Show Full Website URL, Anchor will be the URL also): {target_url}.
         c) A 100-word section that mentions only **one** keyword from the list: {keywords_list}. **This section should include just a single <h2> with the keyword and a short paragraph about the company and services:{services_provide_list}, without any additional heading such as "Keyword Part."**
     3. **Do not put any keywords into quotes**, and do not use keywords as search terms.
     4. The post don't need the title/h1, as title will be created on seperate prompt
