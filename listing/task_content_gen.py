@@ -29,8 +29,11 @@ def get_openai_api_key():
         print(f"Database error: {e}")
         raise e  # Reraise the exception instead of returning a hardcoded key
 
+# Create an instance of the OpenAI client
+client = OpenAI()
+
 # Set the OpenAI API key
-openai.api_key = get_openai_api_key()
+client.api_key = get_openai_api_key()
 
 def get_root_domain(url):
     """Extract the root domain from a given URL."""
@@ -292,7 +295,6 @@ def generate_prompt_for_content(city, state, zip_code, keywords_list, services_p
     **Note:** The article should be formatted with the appropriate HTML tags for WordPress.
     """
 
-client = OpenAI()
 
 @retry(wait=wait_random_exponential(min=30, max=150), stop=stop_after_attempt(6))
 def generate_article(prompt):
