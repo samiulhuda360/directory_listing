@@ -297,11 +297,17 @@ def generate_article(prompt):
     os.environ['OPENAI_API_KEY'] = get_openai_api_key()
     # Create an instance of the OpenAI client
     client = OpenAI()
-    response = client.completions.create(
-        model="gpt-4o-mini",
-        prompt=prompt,
-        max_tokens=1500  
+    
+    # Format the messages for the chat completion
+    messages = [{"role": "user", "content": prompt}] 
+    
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",  # Keep the specified model name
+        messages=messages,
+        temperature=1,
+        max_tokens=1500,
     )
+    
     # Access the content safely
     content = response.choices[0].message['content']
     return content.strip()
