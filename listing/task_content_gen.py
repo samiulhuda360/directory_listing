@@ -287,7 +287,7 @@ def generate_prompt_for_content(city, state, zip_code, keywords_list, services_p
 
 def generate_article(prompt):
     response = openai.ChatCompletion.create(
-        model="gpt-4",
+        model="gpt-4o-mini",
         messages=[{"role": "system", "content": "You are a professional content writer."},
                   {"role": "user", "content": prompt}],
         max_tokens=1500
