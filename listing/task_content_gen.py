@@ -28,10 +28,7 @@ def get_openai_api_key():
         print(f"Database error: {e}")
         raise e
 
-os.environ['OPENAI_API_KEY'] = get_openai_api_key()
 
-# Create an instance of the OpenAI client
-client = OpenAI()
 
 
 def get_root_domain(url):
@@ -297,6 +294,9 @@ def generate_prompt_for_content(city, state, zip_code, keywords_list, services_p
 
 @retry(wait=wait_random_exponential(min=30, max=150), stop=stop_after_attempt(6))
 def generate_article(prompt):
+    os.environ['OPENAI_API_KEY'] = get_openai_api_key()
+    # Create an instance of the OpenAI client
+    client = OpenAI()
     response = client.completions.create(
         model="gpt-4o-mini",
         prompt=prompt,
