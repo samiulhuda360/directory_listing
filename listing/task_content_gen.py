@@ -313,5 +313,4 @@ def generate_article(prompt):
     
     # Access the content correctly
     content = response.choices[0].message.content
-    print(content)
     return content.strip()

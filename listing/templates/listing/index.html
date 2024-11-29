@@ -76,47 +76,92 @@
 
                 console.log("Form submitted, awaiting task IDs...");
 
+                function displaySummaryURL(postUrl) {
+                    const summaryUrlContainer = document.getElementById('summaryUrlContainer');
+                    
+                    // Clear any existing content
+                    summaryUrlContainer.innerHTML = '';
+                
+                    if (postUrl) {
+                        // Create a new H4 element with the post URL
+                        const summaryUrlElement = document.createElement('h4');
+                        summaryUrlElement.innerHTML = `Summary URL: <a href="${postUrl}" target="_blank">${postUrl}</a>`;
+                        
+                        // Append it to the container
+                        summaryUrlContainer.appendChild(summaryUrlElement);
+                    } else {
+                        console.error("No post URL available to display");
+                    }
+                }
+
+                function fetchGeneratedLinks() {
+                    fetch('/get-generated-links-json/')
+                        .then(response => response.json())
+                        .then(data => {                
+                            if (Array.isArray(data.links)) {
+                                console.log("Fetched links:", data.links);
+                                let tableBody = document.querySelector('#linksTable tbody');
+                                tableBody.innerHTML = ''; // Clear the table before adding new rows
+                                
+                                data.links.forEach((linkData, index) => {
+                                    addLinkToTable(linkData, index);
+                                });
+                
+                                // Check if 'post_url' is part of the response and display it
+                                if (data.post_url) {
+                                    console.log("Post URL:", data.post_url);  // Log the post URL to check its value
+                                    displaySummaryURL(data.post_url);  // Call the display function to show the post URL
+                                }
+                            } else {
+                                console.error('Fetched data does not contain a links array:', data);
+                            }
+                        })
+                        .catch(error => console.error('Error:', error));
+                }
+                
+                
                 fetch('{% url "home" %}', {
                     method: 'POST',
                     body: formData
                 })
                 .then(response => {
-                    if (!response.ok) {  // Check if the response status is not OK (e.g., 400, 500)
+                    if (!response.ok) {
                         return response.json().then(data => {
-                            throw new Error(data.error || 'Server responded with an error.');  // Throw an error with the server's error message
+                            throw new Error(data.error || 'Server responded with an error.');
                         });
                     }
                     return response.json();
                 })
                 .then(data => {
+                    console.log("Received data:", data);  // Log the response to check if post_url is returned
+                
                     if (data.task_ids && data.task_ids.length > 0) {
-                        console.log("Received task IDs:", data.task_ids);
-
                         let taskPromises = data.task_ids.map(taskId => {
                             return new Promise(resolve => {
                                 checkTaskStatus(taskId, resolve);
                             });
                         });
-
+                
                         Promise.all(taskPromises).then(statuses => {
                             let completedTasks = statuses.filter(status => status === 'SUCCESS' || status === 'SKIPPED').length;
                             let failedTasks = statuses.length - completedTasks;
-
+                
                             if (completedTasks + failedTasks === data.task_ids.length) {
                                 alert("All tasks have been processed, including skipped ones.");
+                
                                 fetchGeneratedLinks();
+                                fetchFileList();  // Refresh file list
                             }
                         });
                     } else {
                         console.error('Form submission did not return task IDs');
                     }
                 })
-                .catch(error => 
-                alert(error.message));
+                .catch(error => alert(error.message));
             });
 
             fetchFileList(); // Fetch the list of files when the page loads
-
+                                  
             
             // Add event listeners for download and delete buttons
             var downloadButton = document.querySelector("#downloadFileButton");
@@ -279,16 +324,23 @@
 
         
         
-    <table id="linksTable" class="table">
-        <thead>
-          <tr>
+<!-- Summary URL container -->
+<div id="summaryUrlContainer" class="text-center my-5">
+    <!-- The Summary URL will be injected here dynamically -->
+</div>
+
+<!-- Table for displaying links -->
+<table id="linksTable" class="table table-striped table-bordered">
+    <thead>
+        <tr>
             <th scope="col">#</th>
             <th scope="col">Link</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- JavaScript will populate table body -->
-        </tbody>
-      </table>
-      
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Rows will be dynamically added here by JavaScript -->
+    </tbody>
+</table>
+
+
 {% endblock %} 

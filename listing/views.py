@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-from .tasks import create_company_profile_post, test_post_to_wordpress, delete_from_wordpress, perform_test_task, delete_post_by_url, find_post_id_by_url, update_company_profile_post
+from .tasks import create_company_profile_post, test_post_to_wordpress, delete_from_wordpress, perform_test_task, delete_post_by_url, find_post_id_by_url, update_company_profile_post, post_summary_to_wordpress, get_root_domain
 from django.shortcuts import render
 import openpyxl
 from .models import APIConfig, GeneratedURL, TestResult, WebsiteData, CompanyURL, PostedWebsite,TaskInfo
@@ -17,7 +17,6 @@ import json
 import os
 import glob
 from urllib.parse import urlparse
-import requests
 from django.core.exceptions import ValidationError
 from django.http import HttpResponseRedirect
 from django.urls import reverse
@@ -51,40 +50,46 @@ def stop_process(request):
     request.session['stop_signal'] = True
     return JsonResponse({'status': 'stopped'})
 
-def get_root_domain(url):
-    parsed_url = urlparse(url)
-    domain_parts = parsed_url.netloc.split('.')
-    root_domain = '.'.join(domain_parts[-2:]) if len(domain_parts) > 1 else parsed_url.netloc
-    return root_domain
-
-@login_required
 def home(request):
     if request.method == 'POST' and 'excel_file' in request.FILES:
         media_dir = os.path.join(settings.MEDIA_ROOT, 'generated_files')
         if not os.path.exists(media_dir):
             os.makedirs(media_dir)
-        # Clear the session value
+
+        # Clear the session value before uploading a new file
         if 'uploaded_file_name' in request.session:
             del request.session['uploaded_file_name']
-
+        # Clear the session value before uploading a new file
+        if 'row_values' in request.session:
+            del request.session['row_values']
+            
+        # Get the uploaded file
         excel_file = request.FILES['excel_file']
         uploaded_file_name = excel_file.name  # Get the uploaded file's name
-        request.session['uploaded_file_name'] = uploaded_file_name  # Store the file name in the session
+        
+        # Store the file name in session
+        request.session['uploaded_file_name'] = uploaded_file_name
 
-        site_number = int(request.POST.get('site_number'))
+        # Open the Excel file
+        wb = openpyxl.load_workbook(excel_file, data_only=True)
+        sheet = wb.active
+        second_row = sheet[2]
+        row_values = [cell.value for cell in second_row]
+
+        # Store the row_values in the session
+        request.session['row_values'] = row_values
+
+        # Continue processing the rest of your logic
+        company_website = row_values[4]
+
         api_configs_count = APIConfig.objects.filter(site_enable=True).count()
+        site_number = int(request.POST.get('site_number'))
 
         if api_configs_count < site_number:
             return JsonResponse({
                 'error': 'Not enough websites to run the requested number of tasks.',
                 'api_configs_count': api_configs_count,
             }, status=400)
-
-        wb = openpyxl.load_workbook(excel_file, data_only=True)
-        sheet = wb.active
-        second_row = sheet[2]
-        row_values = [cell.value for cell in second_row]
-        company_website = row_values[4]
 
         api_configs = APIConfig.objects.filter(site_enable=True).order_by('?')
         GeneratedURL.objects.filter(user=request.user).delete()
@@ -94,7 +99,6 @@ def home(request):
         api_configs_iterator = iter(api_configs)
 
         match_root_domain = 'match_root_domain' in request.POST
-
 
         while processed_sites_count < site_number:
             try:
@@ -106,9 +110,6 @@ def home(request):
                 # Check for existing company websites
                 existing_company_websites = json.loads(website_data.company_websites) if website_data.company_websites else []
 
-                # Root domain matching based on checkbox state
-                print("MAMAMA",existing_company_websites)
-
                 if match_root_domain:
                     new_company_website_root = get_root_domain(company_website)
                     existing_roots = [get_root_domain(url) for url in existing_company_websites]
@@ -116,16 +117,12 @@ def home(request):
                         task_ids.append('skipped_task_' + str(processed_sites_count))
                         continue
                 else:
-                    print("Company", company_website)
                     if company_website in existing_company_websites:
-                        print("Match Company:", company_website,existing_company_websites )
                         task_ids.append('skipped_task_' + str(processed_sites_count))
                         continue
-                           
+                            
                 website = api_config.website.rstrip('/')
-                print("WEBSITE", website)
                 json_url = f"https://{website}/wp-json/wp/v2"
-                print("Creating task...")
                 task = create_company_profile_post.apply_async(
                     args=[row_values, json_url, api_config.website, api_config.user, api_config.password, api_config.template_no],
                     countdown=delay_seconds
@@ -146,9 +143,54 @@ def home(request):
 
 
 @login_required
+def get_task_result(request, task_id):
+    task_result = AsyncResult(task_id)
+    if task_result.ready():
+        try:
+            Author_name, url, website, company_website = task_result.result
+            if url:
+                logger.info(f"URL saved to database: {url}")
+                GeneratedURL.objects.create(user=request.user, url=url, author_name=Author_name)
+                CompanyURL.objects.create(generated_url=url, company_website=company_website)
+
+                # Retrieve or create WebsiteData for the website
+                api_config = APIConfig.objects.get(website=website)
+                website_data, created = WebsiteData.objects.get_or_create(api_config=api_config)
+
+                # Handle company_websites
+                existing_company_websites = json.loads(website_data.company_websites) if website_data.company_websites else []
+                if company_website not in existing_company_websites and company_website != "":
+                    existing_company_websites.append(company_website)
+                    website_data.company_websites = json.dumps(existing_company_websites)
+
+                # Save the updated website_data
+                website_data.save()
+
+                return JsonResponse({'status': 'SUCCESS', 'url': url, 'author_name': Author_name})
+            else:
+                logger.warning("Task returned an empty URL.")
+                failure_url = f"{website} - Failed to Post in this Domain" if website else "Task Failed"
+                GeneratedURL.objects.create(user=request.user, url=failure_url)
+                return JsonResponse({'status': 'FAILURE', 'error': 'Empty URL'})
+        except Exception as e:
+            logger.error(f"Error in get_task_result in {website}: {e}", exc_info=True)
+            return JsonResponse({'status': 'ERROR', 'error': str(e)})
+    else:
+        return JsonResponse({'status': 'PENDING'})
+
+@login_required
 def unique_consecutive_domain(request):
     if request.method == 'POST' and request.FILES.get('excel_file', None):
         excel_file = request.FILES['excel_file']
+        
+        
+         # Clear the session value before uploading a new file
+        if 'uploaded_file_name' in request.session:
+            del request.session['uploaded_file_name']
+        # Clear the session value before uploading a new file
+        if 'row_values' in request.session:
+            del request.session['row_values']
+            
         uploaded_file_name = excel_file.name
         request.session['uploaded_file_name'] = uploaded_file_name
 
@@ -185,6 +227,9 @@ def unique_consecutive_domain(request):
         sheet = wb.active
         second_row = sheet[2]
         row_values = [cell.value for cell in second_row]
+        
+        # Store the row_values in the session
+        request.session['row_values'] = row_values
         company_website = row_values[4]
 
         GeneratedURL.objects.filter(user=request.user).delete()
@@ -228,42 +273,6 @@ def unique_consecutive_domain(request):
     else:
         return render(request, "listing/unique_domain.html")  
 
-
-@login_required
-def get_task_result(request, task_id):
-    task_result = AsyncResult(task_id)
-    if task_result.ready():
-        try:
-            Author_name, url, website, company_website = task_result.result
-            if url:
-                logger.info(f"URL saved to database: {url}")
-                GeneratedURL.objects.create(user=request.user, url=url, author_name=Author_name)
-                CompanyURL.objects.create(generated_url=url, company_website=company_website)
-
-                # Retrieve or create WebsiteData for the website
-                api_config = APIConfig.objects.get(website=website)
-                website_data, created = WebsiteData.objects.get_or_create(api_config=api_config)
-
-                # Handle company_websites
-                existing_company_websites = json.loads(website_data.company_websites) if website_data.company_websites else []
-                if company_website not in existing_company_websites and company_website != "":
-                    existing_company_websites.append(company_website)
-                    website_data.company_websites = json.dumps(existing_company_websites)
-
-                # Save the updated website_data
-                website_data.save()
-
-                return JsonResponse({'status': 'SUCCESS', 'url': url, 'author_name': Author_name})
-            else:
-                logger.warning("Task returned an empty URL.")
-                failure_url = f"{website} - Failed to Post in this Domain" if website else "Task Failed"
-                GeneratedURL.objects.create(user=request.user, url=failure_url)
-                return JsonResponse({'status': 'FAILURE', 'error': 'Empty URL'})
-        except Exception as e:
-            logger.error(f"Error in get_task_result in {website}: {e}", exc_info=True)
-            return JsonResponse({'status': 'ERROR', 'error': str(e)})
-    else:
-        return JsonResponse({'status': 'PENDING'})
 
 @login_required
 def get_task_result_unique(request, task_id):
@@ -316,10 +325,32 @@ def get_task_result_unique(request, task_id):
 
 @login_required
 def get_generated_links_json(request):
+    # Ensure that the row_values are present in the session
+    row_values = request.session.get('row_values', None)
 
+    if not row_values:
+        return JsonResponse({'error': 'No row values found in the session.'}, status=400)
+
+    # Extract company name and description from the session-stored row_values
+    company_name = row_values[0]  # Assuming company name is at index 0
+    description = row_values[2]  # Assuming description is at index 2
+
+    # Fetch the generated URLs for the current user
     links_data = GeneratedURL.objects.filter(user=request.user).order_by('created_at').values('url', 'author_name')
     links_list = [{'url': link['url'], 'author_name': link['author_name']} for link in links_data]
 
+    # Before writing the Excel file, post the summary to WordPress and get the published URL
+    live_urls = [link['url'] for link in links_data]  # Use the list of URLs from the generated links
+    post_url = post_summary_to_wordpress(company_name, description, live_urls)
+
+    # Check if the post was successfully published
+    if post_url:
+        logger.info(f"Summary post published successfully: {post_url}")
+    else:
+        logger.error("Failed to create and publish the summary post.")
+        post_url = "Failed to publish"  # If the post fails, indicate it in the Excel file
+
+    # Create a new workbook to save the generated links
     workbook = openpyxl.Workbook()
     sheet = workbook.active
 
@@ -340,11 +371,13 @@ def get_generated_links_json(request):
         file_path = os.path.join(settings.MEDIA_ROOT, 'generated_files', file_name)
         counter +=1
 
+    # Set column headers
     sheet['A1'] = 'SL Number'
     sheet['B1'] = 'Root Domain'
     sheet['C1'] = 'URL'
     sheet['D1'] = 'Author Name'
 
+    # Write the generated links to the Excel file
     for index, link in enumerate(links_data, start=2):
         url = link['url']
         author_name = link['author_name']
@@ -354,22 +387,36 @@ def get_generated_links_json(request):
         sheet.cell(row=index, column=3, value=url)
         sheet.cell(row=index, column=4, value=author_name)
 
+    # After writing the links, add the "Summary URL"
+    sheet.cell(row=index + 1, column=2, value="Summary URL:")
+    sheet.cell(row=index + 1, column=3, value=post_url)  # Add the post URL
+
     try:
         workbook.save(file_path)
         logger.info(f"Excel file successfully saved at {file_path}")
         # Save the unique file name in the session for later retrieval
         request.session['download_file_name'] = file_name
+        
     except Exception as e:
         logger.error(f"Error saving Excel file: {e}", exc_info=True)
         return JsonResponse({'error': 'Failed to create Excel file'})
 
+    # Provide the URL to download the Excel file
     file_url = request.build_absolute_uri(os.path.join(settings.MEDIA_URL, 'generated_files', file_name))
-    return JsonResponse({'excel_file_url': file_url, 'links': links_list})
+    
+    # Return the Excel file URL and the generated links as well as the summary URL
+    return JsonResponse({
+        'excel_file_url': file_url,
+        'links': links_list,
+        'post_url': post_url  # Add the post_url to the response
+    })
+
+
 
 
 
 @login_required
-def download_excel(request):
+def download_excel_latest(request):
     download_file_name = request.session.get('download_file_name')
     if not download_file_name:
         return HttpResponseNotFound('No file name found in the session.')
@@ -384,7 +431,6 @@ def download_excel(request):
         return response
     else:
         return HttpResponseNotFound('The requested file was not found on our server.')
-
 
 
 

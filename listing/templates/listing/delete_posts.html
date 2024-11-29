@@ -54,49 +54,55 @@
 
 
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-    let intervalId = setInterval(updateTaskStatuses, 8000); // Set up the interval to update task statuses
-
-    function updateTaskStatuses() {
-        fetch('/check_delete_status/')
-            .then(response => response.json())
-            .then(data => {
-                const taskTableBody = document.getElementById('taskTable').getElementsByTagName('tbody')[0];
-                taskTableBody.innerHTML = ''; // Clear the current list
-
-                let allTasksCompleted = true; // Assume all tasks are completed
-
-                data.tasks.forEach((task, index) => {
-                    const row = taskTableBody.insertRow();
-                    const cellIndex = row.insertCell(0);
-                    const cellUrl = row.insertCell(1);
-                    const cellStatus = row.insertCell(2);
-
-                    cellIndex.textContent = index + 1; // Set index number
-                    cellUrl.textContent = task.url; // Set URL
-                    cellStatus.textContent = task.status; // Set status
-
-                    // Add class based on status for styling
-                    row.classList.add(task.status.toLowerCase());
-                    // Debugging line to check each task status
-                    console.log(`Task ${index + 1}: ${task.url} - ${task.status}`);
-
-                    // If any task is not ready, then not all tasks are completed
-                    if (task.status !== 'SUCCESS' && task.status !== 'FAILED') {
-                        allTasksCompleted = false;
+    document.addEventListener("DOMContentLoaded", function() {
+        let intervalId = setInterval(updateTaskStatuses, 8000); // Set up the interval to update task statuses
+    
+        function updateTaskStatuses() {
+            fetch('/check_delete_status/')
+                .then(response => response.json())
+                .then(data => {
+                    const taskTableBody = document.getElementById('taskTable').getElementsByTagName('tbody')[0];
+                    taskTableBody.innerHTML = ''; // Clear the current list
+    
+                    let allTasksCompleted = true; // Assume all tasks are completed
+    
+                    data.tasks.forEach((task, index) => {
+                        const row = taskTableBody.insertRow();
+                        const cellIndex = row.insertCell(0);
+                        const cellUrl = row.insertCell(1);
+                        const cellStatus = row.insertCell(2);
+    
+                        cellIndex.textContent = index + 1; // Set index number
+                        cellUrl.textContent = task.url; // Set URL
+                        cellStatus.textContent = task.status; // Set status
+    
+                        // Add class based on status for styling
+                        row.classList.add(task.status.toLowerCase());
+                        // Debugging line to check each task status
+                        console.log(`Task ${index + 1}: ${task.url} - ${task.status}`);
+    
+                        // If any task is not ready, then not all tasks are completed
+                        if (task.status !== 'SUCCESS' && task.status !== 'FAILED') {
+                            allTasksCompleted = false;
+                        }
+                    });
+    
+                    // If all tasks are completed, clear the interval
+                    if (allTasksCompleted) {
+                        clearInterval(intervalId);
+                        console.log("All tasks completed. Stopping the status check.");
                     }
+                })
+                .catch(error => {
+                    console.error('Error fetching task statuses:', error);
+                    clearInterval(intervalId); // Clear the interval in case of an error
                 });
-
-                // Removed the block that clears the interval and displays an alert
-            })
-            .catch(error => {
-                console.error('Error fetching task statuses:', error);
-                clearInterval(intervalId); // Clear the interval in case of an error
-            });
-    }
-    updateTaskStatuses(); // Run initially
-});
-
+        }
+    
+        // Initial call to check task statuses when the page loads
+        updateTaskStatuses();
+    });
+    
 </script> 
   
 

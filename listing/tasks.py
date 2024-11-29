@@ -11,7 +11,11 @@ from requests.auth import HTTPBasicAuth
 
 logger = get_task_logger(__name__)
 
-
+def get_root_domain(url):
+    parsed_url = urlparse(url)
+    domain_parts = parsed_url.netloc.split('.')
+    root_domain = '.'.join(domain_parts[-2:]) if len(domain_parts) > 1 else parsed_url.netloc
+    return root_domain
 
 def convert_to_embed_url(youtube_url):
     # Return an empty string if the input URL is blank
@@ -1163,3 +1167,55 @@ def update_company_profile_post(row_values, json_url, website, user, password, h
         print("Failed to update post.")
         print(response.text)
         return 'error', f"Failed to update post. Error: {response.text}"
+      
+      
+def post_summary_to_wordpress(company_website, description, live_urls):
+    try:
+        # Randomly picking a random APIConfig with site_enable=True
+        api_config = APIConfig.objects.filter(site_enable=True).order_by('?').first()
+        if not api_config:
+            logger.error("No enabled WordPress sites available for posting.")
+            return None  # Return None if no WordPress site is available
+
+        # Construct the content
+        title = f"Here are Top Citations for {company_website}"
+        url_list = "\n".join([f'<li><a href="{url}">{get_root_domain(url)}</a></li>' for url in live_urls])
+        content = f"""
+            <p>{description}</p>
+            <p>Top Citations::</p>
+            <ul>
+                {url_list}
+            </ul>
+        """
+
+        # Prepare the JSON payload for posting
+        json_url = f"https://{api_config.website.rstrip('/')}/wp-json/wp/v2/posts"
+        payload = {
+            "title": title,
+            "content": content,
+            "status": "publish",
+        }
+
+        # Make the POST request
+        response = requests.post(
+            json_url,
+            json=payload,
+            auth=(api_config.user, api_config.password),
+        )
+
+        if response.status_code == 201:  # Post created successfully
+            logger.info(f"Summary post created on {api_config.website}")
+            # Extract the published post URL from the response
+            post_data = response.json()
+            post_url = post_data.get('link')  # The link to the published post
+            return post_url  # Return the URL of the published post
+        else:
+            logger.error(f"Failed to create summary post. Response: {response.text}")
+            return None  # Return None if the post creation fails
+
+    except Exception as e:
+        logger.error(f"Error posting summary to WordPress: {e}", exc_info=True)
+        return None  # Return None in case of an error
+
+
+      
