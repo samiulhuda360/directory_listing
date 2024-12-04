@@ -111,7 +111,10 @@ h2 {
                         </li>
                         <li class="nav-item">
                             <a class="nav-link {% if request.resolver_match.url_name == 'content_gen' %}active{% endif %}" href="{% url 'content_gen' %}">GEO Network</a>
-                        </li>                 
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.resolver_match.url_name == 'summary_post' %}active{% endif %}" href="{% url 'summary_post' %}">Summary Submission</a>
+                        </li>               
                 </ul>
                 
                 {% else %}

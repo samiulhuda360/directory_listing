@@ -1,0 +1,47 @@
+{% extends "listing/base.html" %}
+
+{% block title %}Update Post{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+    <h2 class="mb-4">Publish URLs Summary Post</h2>
+
+    <!-- Display Success or Error Messages -->
+    {% if messages %}
+        <div class="alert alert-dismissible fade show" role="alert">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} mt-2">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    
+    <!-- Form for Business Information -->
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="businessName" class="form-label">Business Name</label>
+            <input type="text" class="form-control" id="businessName" name="company_name" placeholder="Enter business name">
+        </div>
+    
+        <div class="mb-3">
+            <label for="businessDescription" class="form-label">Business Description</label>
+            <textarea class="form-control" id="businessDescription" name="description" rows="3" placeholder="Enter business description"></textarea>
+        </div>
+    
+        <div class="mb-3">
+            <label for="urlList" class="form-label">URLs</label>
+            <textarea class="form-control" id="urlList" name="url_list" rows="5" placeholder="Enter one URL per line"></textarea>
+        </div>
+    
+        <div class="mb-3">
+            <label for="excelUpload" class="form-label">Upload Excel File</label>
+            <input type="file" class="form-control" id="excelUpload" name="excel_file" accept=".xls,.xlsx,.csv">
+        </div>
+    
+        <button type="submit" class="btn btn-primary">Submit</button>
+    </form>
+</div>
+{% endblock %}

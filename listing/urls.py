@@ -34,6 +34,7 @@ urlpatterns = [
     path('post-update/', views.post_update_view, name='post_update'),
     path('delete-all-files/', views.delete_all_files, name='delete_all_files'),
     path('flash-posted-website/', views.flash_posted_website, name='flash_posted_website'),
+    path('summary-post/', views.summary_post, name='summary_post'),
 
     
 ]  + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

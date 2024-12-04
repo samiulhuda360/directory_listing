@@ -990,3 +990,32 @@ def delete_all_files_geo(request):
         })
     
     return JsonResponse({'status': 'success', 'deleted_files': deleted_files})
+
+
+
+@login_required
+def summary_post(request):
+    if request.method == "POST":
+        company_name = request.POST.get("company_name")
+        description = request.POST.get("description")
+        url_list = request.POST.get("url_list", "").splitlines()  # Split URLs into a list
+
+        # Handle Excel file upload
+        excel_file = request.FILES.get("excel_file")
+        if excel_file:
+            try:
+                # Read the Excel file
+                df = pd.read_excel(excel_file)
+                url_list = df['URLs'].tolist()  # Assume the file has a column named 'URLs'
+            except Exception as e:
+                messages.error(request, f"Failed to read Excel file: {e}")
+                return render(request, 'summary_post.html')
+
+        # Call the function to post the summary
+        post_url = post_summary_to_wordpress(company_name, description, url_list)
+        if post_url:
+            messages.success(request, f"Post created successfully: {post_url}")
+        else:
+            messages.error(request, "Failed to create post on WordPress.")
+
+    return render(request, 'listing/summary_post.html')
