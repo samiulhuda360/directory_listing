@@ -50,6 +50,7 @@ def stop_process(request):
     request.session['stop_signal'] = True
     return JsonResponse({'status': 'stopped'})
 
+@login_required
 def home(request):
     if request.method == 'POST' and 'excel_file' in request.FILES:
         media_dir = os.path.join(settings.MEDIA_ROOT, 'generated_files')
