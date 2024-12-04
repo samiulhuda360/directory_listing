@@ -1,11 +1,12 @@
 {% extends "listing/base.html" %}
+{% load static %}
 
 {% block title %}Update Post{% endblock %}
 
 {% block content %}
 
 <div class="container mt-4">
-    <h2 class="mb-4">Publish URLs Summary Post</h2>
+    <h2 class="mb-3">Publish URLs Summary Post</h2>
 
     <!-- Display Success or Error Messages -->
     {% if messages %}
@@ -17,11 +18,13 @@
             {% endfor %}
         </div>
     {% endif %}
-    
+
     <!-- Form for Business Information -->
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        <div class="mb-3">
+        
+        <!-- Form content will take available space but not stretch too far -->
+        <div class="mb-2">
             <label for="businessName" class="form-label">Business Name</label>
             <input type="text" class="form-control" id="businessName" name="company_name" placeholder="Enter business name">
         </div>
@@ -29,19 +32,29 @@
         <div class="mb-3">
             <label for="businessDescription" class="form-label">Business Description</label>
             <textarea class="form-control" id="businessDescription" name="description" rows="3" placeholder="Enter business description"></textarea>
-        </div>
+        </div>   
     
-        <div class="mb-3">
+        <div class="mb-2">
             <label for="urlList" class="form-label">URLs</label>
             <textarea class="form-control" id="urlList" name="url_list" rows="5" placeholder="Enter one URL per line"></textarea>
         </div>
-    
-        <div class="mb-3">
-            <label for="excelUpload" class="form-label">Upload Excel File</label>
-            <input type="file" class="form-control" id="excelUpload" name="excel_file" accept=".xls,.xlsx,.csv">
+
+        <!-- Row for Upload and Download buttons, horizontally aligned -->
+        <div class="row mb-2">
+            <div class="col-md-6">
+                <label for="excelUpload" class="form-label">Upload Excel File</label>
+                <input type="file" class="form-control" id="excelUpload" name="excel_file" accept=".xls,.xlsx,.csv">
+            </div>
+            <div class="col-md-6">
+                <!-- Button for Downloading Excel Template -->
+                <label class="form-label d-block">&nbsp;</label>
+                <a href="{% static 'url_submission_template.xlsx' %}" class="btn btn-secondary w-100" download>Download Excel Template</a>
+            </div>
         </div>
     
+        <!-- Submit Button -->
         <button type="submit" class="btn btn-primary">Submit</button>
     </form>
 </div>
+
 {% endblock %}

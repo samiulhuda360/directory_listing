@@ -12,6 +12,11 @@ from requests.auth import HTTPBasicAuth
 logger = get_task_logger(__name__)
 
 def get_root_domain(url):
+    # Add scheme if missing
+    if not urlparse(url).scheme:
+        url = f"http://{url}"
+    
+    # Parse the URL and extract the root domain
     parsed_url = urlparse(url)
     domain_parts = parsed_url.netloc.split('.')
     root_domain = '.'.join(domain_parts[-2:]) if len(domain_parts) > 1 else parsed_url.netloc
@@ -1176,10 +1181,12 @@ def post_summary_to_wordpress(company_name, description, live_urls):
         if not api_config:
             logger.error("No enabled WordPress sites available for posting.")
             return None  # Return None if no WordPress site is available
-
+        print(live_urls)
         # Construct the content
         title = f"Here are Top Citations for {company_name}"
         url_list = "\n".join([f'<li><a href="{url}">{get_root_domain(url)}</a></li>' for url in live_urls])
+        
+        print("URL List:", url_list)
         content = f"""
             <p>{description}</p>
             <p>Top Citations::</p>
@@ -1187,6 +1194,7 @@ def post_summary_to_wordpress(company_name, description, live_urls):
                 {url_list}
             </ul>
         """
+        print(content)
 
         # Prepare the JSON payload for posting
         json_url = f"https://{api_config.website.rstrip('/')}/wp-json/wp/v2/posts"

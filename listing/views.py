@@ -23,6 +23,7 @@ from django.urls import reverse
 from .task_content_gen import process_xls_file_incrementally
 import tempfile
 from django.views.decorators.cache import never_cache
+from django.utils.html import format_html
 
 
 
@@ -992,30 +993,58 @@ def delete_all_files_geo(request):
     return JsonResponse({'status': 'success', 'deleted_files': deleted_files})
 
 
-
 @login_required
 def summary_post(request):
     if request.method == "POST":
         company_name = request.POST.get("company_name")
         description = request.POST.get("description")
         url_list = request.POST.get("url_list", "").splitlines()  # Split URLs into a list
+        
+        # Debugging: Log the URL list from the form
+        print(f"URL List from form: {url_list}")  # For debugging purposes
 
         # Handle Excel file upload
         excel_file = request.FILES.get("excel_file")
         if excel_file:
             try:
-                # Read the Excel file
-                df = pd.read_excel(excel_file)
-                url_list = df['URLs'].tolist()  # Assume the file has a column named 'URLs'
+                # Ensure openpyxl is used for .xlsx files
+                df = pd.read_excel(excel_file, engine='openpyxl')
+
+                # Validate required columns
+                required_columns = ['Business Name', 'Description', 'URLs']
+                missing_columns = [col for col in required_columns if col not in df.columns]
+                if missing_columns:
+                    messages.error(request, f"Missing columns: {', '.join(missing_columns)}")
+                    return render(request, 'listing/summary_post.html')
+
+                # Extract business name and description from the first row (if not provided by the form)
+                if not company_name:
+                    company_name = df['Business Name'].iloc[0] if df['Business Name'].iloc[0] else 'Default Business Name'
+                if not description:
+                    description = df['Description'].iloc[0] if df['Description'].iloc[0] else 'Default Description'
+
+                # Get the list of URLs (all rows under the "URLs" column)
+                url_list = df['URLs'].dropna().tolist()  # Remove NaN values and get URLs
+
             except Exception as e:
                 messages.error(request, f"Failed to read Excel file: {e}")
-                return render(request, 'summary_post.html')
+                return render(request, 'listing/summary_post.html')
+
+        # Debugging: Log the final URL list
+        print(f"Final URL List: {url_list}")  # For debugging purposes
+
+        # Ensure URL list is not empty before posting
+        if not url_list:
+            messages.error(request, "No URLs found. Please provide a valid list of URLs.")
+            return render(request, 'listing/summary_post.html')
 
         # Call the function to post the summary
         post_url = post_summary_to_wordpress(company_name, description, url_list)
         if post_url:
-            messages.success(request, f"Post created successfully: {post_url}")
+            success_message = format_html('Post created successfully: <a href="{0}" target="_blank">{0}</a>', post_url)
+            messages.success(request, success_message)
         else:
             messages.error(request, "Failed to create post on WordPress.")
 
     return render(request, 'listing/summary_post.html')
+
