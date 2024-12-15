@@ -1011,7 +1011,7 @@ def summary_post(request):
                 df = pd.read_excel(excel_file, engine='openpyxl')
 
                 # Validate required columns
-                required_columns = ['Business Name', 'Description', 'URLs']
+                required_columns = ['Post Title', 'Description', 'URLs']
                 missing_columns = [col for col in required_columns if col not in df.columns]
                 if missing_columns:
                     messages.error(request, f"Missing columns: {', '.join(missing_columns)}")
@@ -1019,7 +1019,7 @@ def summary_post(request):
 
                 # Extract business name and description from the first row (if not provided by the form)
                 if not company_name:
-                    company_name = df['Business Name'].iloc[0] if df['Business Name'].iloc[0] else 'Default Business Name'
+                    company_name = df['Post Title'].iloc[0] if df['Post Title'].iloc[0] else 'Default Business Name'
                 if not description:
                     description = df['Description'].iloc[0] if df['Description'].iloc[0] else 'Default Description'
 

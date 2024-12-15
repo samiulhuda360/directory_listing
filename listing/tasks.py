@@ -1181,7 +1181,6 @@ def post_summary_to_wordpress(post_title, description, live_urls):
         if not api_config:
             logger.error("No enabled WordPress sites available for posting.")
             return None  # Return None if no WordPress site is available
-        print(live_urls)
         # Construct the content
         # title = f"Here are Top Citations for {company_name}"
         url_list = "\n".join([f'<li><a href="{url}">{get_root_domain(url)}</a></li>' for url in live_urls])
