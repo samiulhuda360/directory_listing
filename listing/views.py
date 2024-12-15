@@ -996,7 +996,7 @@ def delete_all_files_geo(request):
 @login_required
 def summary_post(request):
     if request.method == "POST":
-        company_name = request.POST.get("company_name")
+        post_title = request.POST.get("company_name")
         description = request.POST.get("description")
         url_list = request.POST.get("url_list", "").splitlines()  # Split URLs into a list
         
@@ -1030,16 +1030,13 @@ def summary_post(request):
                 messages.error(request, f"Failed to read Excel file: {e}")
                 return render(request, 'listing/summary_post.html')
 
-        # Debugging: Log the final URL list
-        print(f"Final URL List: {url_list}")  # For debugging purposes
-
         # Ensure URL list is not empty before posting
         if not url_list:
             messages.error(request, "No URLs found. Please provide a valid list of URLs.")
             return render(request, 'listing/summary_post.html')
 
         # Call the function to post the summary
-        post_url = post_summary_to_wordpress(company_name, description, url_list)
+        post_url = post_summary_to_wordpress(post_title, description, url_list)
         if post_url:
             success_message = format_html('Post created successfully: <a href="{0}" target="_blank">{0}</a>', post_url)
             messages.success(request, success_message)

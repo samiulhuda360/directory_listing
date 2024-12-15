@@ -1174,7 +1174,7 @@ def update_company_profile_post(row_values, json_url, website, user, password, h
         return 'error', f"Failed to update post. Error: {response.text}"
       
       
-def post_summary_to_wordpress(company_name, description, live_urls):
+def post_summary_to_wordpress(post_title, description, live_urls):
     try:
         # Randomly picking a random APIConfig with site_enable=True
         api_config = APIConfig.objects.filter(site_enable=True).order_by('?').first()
@@ -1183,7 +1183,7 @@ def post_summary_to_wordpress(company_name, description, live_urls):
             return None  # Return None if no WordPress site is available
         print(live_urls)
         # Construct the content
-        title = f"Here are Top Citations for {company_name}"
+        # title = f"Here are Top Citations for {company_name}"
         url_list = "\n".join([f'<li><a href="{url}">{get_root_domain(url)}</a></li>' for url in live_urls])
         
         print("URL List:", url_list)
@@ -1199,7 +1199,7 @@ def post_summary_to_wordpress(company_name, description, live_urls):
         # Prepare the JSON payload for posting
         json_url = f"https://{api_config.website.rstrip('/')}/wp-json/wp/v2/posts"
         payload = {
-            "title": title,
+            "title": post_title,
             "content": content,
             "status": "publish",
         }
