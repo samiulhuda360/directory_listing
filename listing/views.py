@@ -723,68 +723,35 @@ def flash_posted_website(request):
     return HttpResponseRedirect(reverse('unique_consecutive_domain'))
 
 
-@login_required
+login_required
 def post_update_view(request):
-    logger.info("Entered post_update_view")
     messages_list = []
 
     if request.method == 'POST':
-        post_urls = request.POST.get('post_urls').splitlines()
-        excel_file = request.FILES.get('excel_file')
+        # ... your existing code to queue tasks ...
+        task_ids.append(task.id)
 
-        if excel_file:
-            try:
-                wb = openpyxl.load_workbook(excel_file, data_only=True)
-                sheet = wb.active
-                second_row = sheet[2]
-                row_values = [cell.value for cell in second_row if cell.value is not None]
-            except Exception as e:
-                logger.error(f"Failed to read Excel file: {str(e)}")
-                messages_list.append({'tags': 'error', 'message': f"Failed to read Excel file: {str(e)}"})
-                return render(request, 'listing/post_update.html', {'messages': messages_list})
+        # Instead of showing Task IDs, just store in session
+        request.session['task_ids'] = task_ids
+        messages_list.append({'tags': 'info', 'message': "Tasks started. Please refresh to see results."})
+        return render(request, 'listing/post_update.html', {'messages': messages_list})
 
-            task_ids = []
+    # If GET and session has task IDs, check their status
+    task_ids = request.session.get('task_ids', [])
+    completed_tasks = []
+    for task_id in task_ids:
+        async_result = AsyncResult(task_id)
+        if async_result.state == 'SUCCESS':
+            completed_tasks.append(async_result.info)  # meta info from task
+        elif async_result.state == 'FAILURE':
+            messages_list.append({'tags': 'error', 'message': f"Task {task_id} failed."})
 
-            for post_url in post_urls:
-                parsed_url = urlparse(post_url)
-                domain = parsed_url.netloc
+    if completed_tasks:
+        messages_list.append({'tags': 'success', 'message': f"Posts updated successfully: {completed_tasks}"})
+        # Clear session
+        request.session.pop('task_ids')
 
-                try:
-                    config = APIConfig.objects.get(website__icontains=domain)
-                except APIConfig.DoesNotExist:
-                    logger.error(f"No API configuration found for domain: {domain}")
-                    messages_list.append({'tags': 'error', 'message': f"No API configuration found for domain: {domain}"})
-                    continue
-
-                post_id = find_post_id_by_url(domain, post_url, config.user, config.password)
-                if post_id is None:
-                    logger.error(f"Post with URL '{post_url}' not found.")
-                    messages_list.append({'tags': 'error', 'message': f"Post with URL '{post_url}' not found."})
-                    continue
-
-                json_url = f"https://{domain}/wp-json/wp/v2/posts/{post_id}"
-
-                # Trigger the task asynchronously using delay() or apply_async()
-                task = update_company_profile_post.delay(
-                    row_values=row_values,
-                    json_url=json_url,
-                    website=config.website,
-                    user=config.user,
-                    password=config.password,
-                    html_template=config.template_no,
-                    post_id=post_id
-                )
-                task_ids.append(task.id)
-
-            messages_list.append({'tags': 'info', 'message': f"Tasks started. Task IDs: {task_ids}"})
-
-            logger.info(f"All tasks queued. Task IDs: {task_ids}")
-            return render(request, 'listing/post_update.html', {
-                'messages': messages_list,
-                'task_ids': task_ids  
-            })
-
-    return render(request, 'listing/post_update.html')
+    return render(request, 'listing/post_update.html', {'messages': messages_list})
 
 
 
