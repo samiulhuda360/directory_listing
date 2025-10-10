@@ -771,7 +771,8 @@ def post_update_view(request):
                     website=config.website,
                     user=config.user,
                     password=config.password,
-                    html_template=config.template_no
+                    html_template=config.template_no,
+                    post_id=post_id
                 )
                 task_ids.append(task.id)
 
