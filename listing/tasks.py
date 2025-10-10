@@ -681,41 +681,34 @@ def delete_post_by_url(self, post_url):
 
 
 
+from celery import shared_task
+import base64
+import requests
+from requests.auth import HTTPBasicAuth
+
+# Your existing function
 def find_post_id_by_url(domain_name, post_url, username, app_password):
     base_url = f"https://{domain_name}/wp-json/wp/v2/posts"
-    headers = {
-        'Authorization': f'Basic {username}:{app_password}'
-    }
     per_page = 100
     page = 1
     while True:
-        params = {
-            'per_page': per_page,
-            'page': page
-        }
+        params = {'per_page': per_page, 'page': page}
         response = requests.get(base_url, auth=HTTPBasicAuth(username, app_password), params=params)
-        print(username)
         
-        # If a 400 status code is received, stop the search
         if response.status_code == 400:
-            print("Reached end of posts or encountered an error.")
             break
-        
-        # Check for successful response
-        if response.status_code == 200:
+        elif response.status_code == 200:
             data = response.json()
-            if not data:  # Empty list means no more posts available
+            if not data:
                 break
-            # Find the post ID
             for post in data:
                 if post['link'] == post_url:
-                    return post['id']  # Return the found post ID
-            page += 1  # Increment page number to fetch the next set of posts
+                    return post['id']
+            page += 1
         else:
             print(f"Error fetching posts: {response.status_code}")
             break
-
-    return None  # Return None if post not found or if there was an error
+    return None
   
 @shared_task
 def update_company_profile_post(row_values, json_url, website, user, password, html_template, post_id):
