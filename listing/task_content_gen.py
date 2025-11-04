@@ -15,6 +15,7 @@ from celery.utils.log import get_task_logger
 from urllib.parse import urlparse
 from celery.exceptions import Ignore
 import time
+import base64
 
 def get_openai_api_key():
     try:
@@ -215,8 +216,43 @@ def process_site(second_column_data, api_config_site, map_iframe, avoid_root_dom
         logger.error(f"Failed to post to WordPress. Status code: {status_code}, response: {response_or_posted_url}")
         return False, response_or_posted_url if response_or_posted_url else 'No response'
 
-
 def post_to_wordpress(api_config, generate_title, article):
+    """
+    Post an article to WordPress using Base64-encoded Basic Authentication.
+    """
+    wp_url = f"https://{api_config.website}/wp-json/wp/v2/posts"
+
+    # Encode username:password in base64
+    user_pass = f"{api_config.user}:{api_config.password}"
+    token = base64.b64encode(user_pass.encode()).decode('utf-8')
+
+    headers = {
+        'Authorization': f'Basic {token}',
+        'Content-Type': 'application/json'
+    }
+
+    post_data = {
+        'title': generate_title.strip('“').strip('”') if generate_title else "Untitled",
+        'content': article,
+        'status': 'publish'
+    }
+
+    try:
+        response = requests.post(wp_url, headers=headers, json=post_data, timeout=30)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to create post on {api_config.website}: {e}")
+        return 500, str(e)
+
+    try:
+        response_data = response.json()
+        logger.info(f"Post created successfully on {api_config.website}: {response_data.get('link')}")
+        return 201, response_data.get('link')
+    except ValueError:
+        logger.error("Failed to parse JSON response from WordPress.")
+        return response.status_code, "Invalid JSON response"
+
+# def post_to_wordpress(api_config, generate_title, article):
     # Define the WordPress REST API endpoint and authentication
     wp_url = f"https://{api_config.website}/wp-json/wp/v2/posts"
     auth = (api_config.user, api_config.password)
