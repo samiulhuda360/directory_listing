@@ -330,23 +330,39 @@ def generate_prompt_for_content(city, state, zip_code, keywords_list, services_p
 
 @retry(wait=wait_random_exponential(min=30, max=150), stop=stop_after_attempt(6))
 def generate_article(prompt):
-    os.environ['OPENAI_API_KEY'] = get_openai_api_key()
-    # Create an instance of the OpenAI client
-    client = OpenAI()
-    
-    # Format the messages for the chat completion
-    messages = [{"role": "user", "content": prompt}]  # Add the prompt as a user message
-    
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",  # Keep the specified model name
-        messages=messages,
-        temperature=1,
-        max_tokens=1500,
-        top_p=1,
-        frequency_penalty=0,
-        presence_penalty=0
-    )
-    
-    # Access the content correctly
-    content = response.choices[0].message.content
-    return content.strip()
+    """
+    Generate article content using OpenAI GPT model.
+    Retries automatically on transient network/API errors.
+    """
+
+    try:
+        # ✅ Use API key from DB explicitly (no env override)
+        client = OpenAI(api_key=get_openai_api_key())
+
+        # Prepare messages for chat completion
+        messages = [
+            {"role": "system", "content": "You are a helpful and professional content writer."},
+            {"role": "user", "content": prompt},
+        ]
+
+        logger.info("Sending request to OpenAI API...")
+
+        # Create the chat completion
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",         # use your preferred model
+            messages=messages,
+            temperature=0.9,             # creativity level
+            max_completion_tokens=1500,  # correct param name for SDK v1.51+
+            top_p=1,
+            frequency_penalty=0,
+            presence_penalty=0
+        )
+
+        # Extract content safely
+        content = response.choices[0].message.content.strip()
+        logger.info("OpenAI response received successfully.")
+        return content
+
+    except Exception as e:
+        logger.error(f"OpenAI API call failed: {e}", exc_info=True)
+        raise e
