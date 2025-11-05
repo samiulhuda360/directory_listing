@@ -1,6 +1,6 @@
 from celery import shared_task
 import pandas as pd
-from openai import OpenAI
+import openai
 from tenacity import retry, wait_random_exponential, stop_after_attempt
 import requests
 from django.core.files.storage import default_storage
