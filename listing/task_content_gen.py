@@ -336,8 +336,12 @@ def generate_article(prompt):
     """
 
     try:
-        # ✅ Use API key from DB explicitly (no env override)
-        client = OpenAI(api_key=get_openai_api_key())
+        # ✅ Use API key from DB explicitly
+        api_key = get_openai_api_key()
+        if not api_key:
+            raise ValueError("OpenAI API key not found in DB.")
+
+        client = OpenAI(api_key=api_key)
 
         # Prepare messages for chat completion
         messages = [
@@ -349,10 +353,10 @@ def generate_article(prompt):
 
         # Create the chat completion
         response = client.chat.completions.create(
-            model="gpt-4o-mini",         # use your preferred model
+            model="gpt-4o-mini",
             messages=messages,
-            temperature=0.9,             # creativity level
-            max_completion_tokens=1500,  # correct param name for SDK v1.51+
+            temperature=0.9,
+            max_completion_tokens=1500,
             top_p=1,
             frequency_penalty=0,
             presence_penalty=0
