@@ -327,7 +327,6 @@ def generate_prompt_for_content(city, state, zip_code, keywords_list, services_p
     **Note:** The article should be formatted with the appropriate HTML tags for WordPress.
     """
 
-
 @retry(wait=wait_random_exponential(min=30, max=150), stop=stop_after_attempt(6))
 def generate_article(prompt):
     """
@@ -336,34 +335,28 @@ def generate_article(prompt):
     """
 
     try:
-        # ✅ Use API key from DB explicitly
+        # ✅ Fetch API key dynamically from DB
         api_key = get_openai_api_key()
         if not api_key:
             raise ValueError("OpenAI API key not found in DB.")
-
-        client = OpenAI(api_key=api_key)
-
-        # Prepare messages for chat completion
-        messages = [
-            {"role": "system", "content": "You are a helpful and professional content writer."},
-            {"role": "user", "content": prompt},
-        ]
+        openai.api_key = api_key
 
         logger.info("Sending request to OpenAI API...")
 
-        # Create the chat completion
-        response = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-4o-mini",
-            messages=messages,
+            messages=[
+                {"role": "system", "content": "You are a helpful and professional content writer."},
+                {"role": "user", "content": prompt}
+            ],
             temperature=0.9,
-            max_completion_tokens=1500,
+            max_tokens=1500,
             top_p=1,
             frequency_penalty=0,
             presence_penalty=0
         )
 
-        # Extract content safely
-        content = response.choices[0].message.content.strip()
+        content = response.choices[0].message['content'].strip()
         logger.info("OpenAI response received successfully.")
         return content
 
