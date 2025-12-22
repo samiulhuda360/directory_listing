@@ -19,7 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Security
 # ============================
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'replace-this-in-prod')  # Must be set in environment
-DEBUG = True  
+DEBUG = False  
 ALLOWED_HOSTS = ['143.110.155.19', '127.0.0.1', 'cv.seodn.com', 'www.cv.seodn.com']
 CSRF_TRUSTED_ORIGINS = ['https://cv.seodn.com', 'https://www.cv.seodn.com']
 
@@ -28,7 +28,7 @@ SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SECURE = True
 CSRF_COOKIE_HTTPONLY = True
-SECURE_SSL_REDIRECT = False
+SECURE_SSL_REDIRECT = True
 SECURE_HSTS_SECONDS = 31536000  # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
