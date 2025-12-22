@@ -937,7 +937,6 @@ def content_gen_status_view(request, task_id):
 
 
 
-
 @login_required
 def list_files_geo(request):
     output_dir = os.path.join(settings.MEDIA_ROOT, 'GEO_output_folder')
@@ -947,11 +946,15 @@ def list_files_geo(request):
         
         if not files:
             return JsonResponse({'status': 'error', 'message': 'No files available.'}, status=404)
+        
+        # Sort files by modification time (newest first)
+        files.sort(key=lambda x: os.path.getmtime(os.path.join(output_dir, x)), reverse=True)
 
         return JsonResponse({'status': 'success', 'files': files})
 
     except FileNotFoundError:
         return JsonResponse({'status': 'error', 'message': 'Directory not found.'}, status=404)
+
 
 
 @login_required
