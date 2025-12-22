@@ -3,7 +3,7 @@ Automation{% endblock %} {% block content %}
 <form action="{% url 'login' %}" method="post">
   {% csrf_token %}
   <div class="mb-3">
-    <label for="username" class="form-label">Username</label>
+    <label for="password" class="form-label">Password</label>
     <input
       type="text"
       class="form-control"
