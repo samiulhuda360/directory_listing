@@ -19,7 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Security
 # ============================
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'replace-this-in-prod')  # Must be set in environment
-DEBUG = False  # Never True in production
+DEBUG = True  
 ALLOWED_HOSTS = ['143.110.155.19', '127.0.0.1', 'cv.seodn.com', 'www.cv.seodn.com']
 CSRF_TRUSTED_ORIGINS = ['https://cv.seodn.com', 'https://www.cv.seodn.com']
 
