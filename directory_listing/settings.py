@@ -16,7 +16,8 @@ OPENAI_API_KEY = "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"
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['143.110.155.19', '127.0.0.1', 'https://cv.seodn.com',  'https://www.cv.seodn.com', '0.0.0.0']
+ALLOWED_HOSTS = ['143.110.155.19', '127.0.0.1', 'cv.seodn.com', 'www.cv.seodn.com']
+CSRF_TRUSTED_ORIGINS = ['https://cv.seodn.com', 'https://www.cv.seodn.com']
 
 
 # Application definition
