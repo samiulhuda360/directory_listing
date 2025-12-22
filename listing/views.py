@@ -32,19 +32,16 @@ logger = logging.getLogger(__name__)
 
 def login_view(request):
     if request.method == 'POST':
-        username = request.POST['username']
-        password = request.POST['password']
+        username = request.POST.get('username')
+        password = request.POST.get('password')
         user = authenticate(request, username=username, password=password)
-        
         if user is not None:
             login(request, user)
-            # Redirect to a success page.
-            return redirect('home')  # Replace 'home' with the name of your target page
+            return redirect('home')
         else:
-            # Return an 'invalid login' error message.
             messages.error(request, 'Invalid username or password.')
-    
-    return render(request, 'registration/login.html')  # Replace with your template name
+
+    return render(request, 'listing/login.html')
 
 @login_required
 def stop_process(request):

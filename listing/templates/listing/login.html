@@ -1,0 +1,30 @@
+{% extends "listing/base.html" %} {% block title %}Directory Listing
+Automation{% endblock %} {% block content %}
+<form action="/login/" method="post">
+  {% csrf_token %}
+  <div class="mb-3">
+    <label for="password" class="form-label">Password</label>
+    <input
+      type="text"
+      class="form-control"
+      id="username"
+      name="username"
+      required
+    />
+  </div>
+  <div class="mb-3">
+    <label for="password" class="form -label">Password</label>
+    <input
+      type="password"
+      class="form-control"
+      id="password"
+      name="password"
+      required
+    />
+  </div>
+  <div class="mb-3">
+    <button type="submit" class="btn btn-primary">Login</button>
+  </div>
+</form>
+
+{% endblock %}
