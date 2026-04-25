@@ -194,6 +194,12 @@
     </div>
 </div>
 
+<!-- Funny Failure Report (shown after posting if any sites failed) -->
+<div id="failReport" style="display:none;" class="page-card mt-1 mb-3">
+    <h5 id="failReportTitle"></h5>
+    <div id="failReportBody"></div>
+</div>
+
 <!-- Summary URL -->
 <div id="summaryUrlContainer" class="mb-3"></div>
 
@@ -217,6 +223,7 @@
     let doneTasks = 0;
     let failTasks = 0;
     let skipTasks = 0;
+    let failedSites = [];
 
     document.addEventListener('DOMContentLoaded', function () {
 
@@ -331,6 +338,41 @@
         document.getElementById('startProcess').disabled = false;
         document.getElementById('stopProcess').style.display = 'none';
         updateProgressBar();
+
+        const failReport = document.getElementById('failReport');
+        if (failedSites.length > 0) {
+            const funnyIntros = [
+                "These sites were clearly having a rough Monday:",
+                "The following websites ghosted us completely:",
+                "Our robot knocked. Nobody answered:",
+                "These sites looked at our post and went 'nope':",
+                "Wall of shame — sites that refused to cooperate:",
+            ];
+            const funnyFooters = [
+                "Not our fault. Probably Mercury retrograde. 🪐",
+                "Try again later. Or don't. They don't care. 🤷",
+                "They said no. Their loss. We'll be fine. 💅",
+                "Status: ghosted. Next steps: cry, then retry. 😭",
+                "These sites are on thin ice. One more chance. ❄️",
+            ];
+            const intro = funnyIntros[Math.floor(Math.random() * funnyIntros.length)];
+            const footer = funnyFooters[Math.floor(Math.random() * funnyFooters.length)];
+            const siteReactions = ['probably napping 😴', 'too cool for us 😎', 'having an existential crisis 🤔', 'on a coffee break ☕', 'just not into us 💔', 'error 404: cooperation not found 🤖', 'firewall trust issues 🔒'];
+            const listItems = failedSites.map((s, i) => {
+                const reaction = siteReactions[i % siteReactions.length];
+                return `<li class="mb-1">💀 <strong>${s}</strong> <span style="color:#aaa;font-size:12px;">— ${reaction}</span></li>`;
+            }).join('');
+
+            document.getElementById('failReportTitle').textContent = `😅 The "Not Today" Club (${failedSites.length} site${failedSites.length > 1 ? 's' : ''})`;
+            document.getElementById('failReportBody').innerHTML = `
+                <p style="color:#888;font-size:13px;margin-bottom:10px;">${intro}</p>
+                <ul style="list-style:none;padding:0;font-size:14px;">${listItems}</ul>
+                <p style="font-size:12px;color:#bbb;margin-top:12px;margin-bottom:0;">${footer}</p>
+            `;
+            failReport.style.display = 'block';
+        } else {
+            failReport.style.display = 'none';
+        }
     }
 
     function updateProgressBar() {
@@ -347,7 +389,10 @@
 
     function resetStats() {
         totalTasks = 0; doneTasks = 0; failTasks = 0; skipTasks = 0; completedTasks = 0;
+        failedSites = [];
         ['statTotal','statDone','statFail','statSkip'].forEach(id => document.getElementById(id).textContent = '0');
+        document.getElementById('failReport').style.display = 'none';
+        document.getElementById('failReport').innerHTML = '';
     }
 
     function checkTaskStatus(taskId, onComplete) {
@@ -391,6 +436,7 @@
                     updateProgressBar();
                     setStatusMessage(`${completedTasks} of ${totalTasks} done`);
                     const failSite = data.website || 'unknown site';
+                    failedSites.push(failSite);
                     logActivity(`😬 ${failSite} said nope — site is down or having a bad day`, 'fail');
                     onComplete(data.status);
                 } else if (data.status === 'PENDING') {
@@ -403,6 +449,7 @@
                 completedTasks++;
                 document.getElementById('statFail').textContent = failTasks;
                 updateProgressBar();
+                failedSites.push('unknown (network error)');
                 logActivity(`🌐 Lost the signal on that one — network hiccup`, 'fail');
                 onComplete('ERROR');
             });
