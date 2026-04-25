@@ -148,6 +148,12 @@
         <div id="progressBar" class="progress-bar" role="progressbar" style="width:0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
     </div>
     <div id="statusMessage">Initialising tasks...</div>
+
+    <!-- Live activity log -->
+    <div id="activityLog" class="mt-3" style="background:#f8f5fc;border:1px solid #e0cef0;border-radius:10px;padding:12px 16px;max-height:160px;overflow-y:auto;font-size:13px;font-family:monospace;">
+        <div id="activityLogInner"></div>
+    </div>
+
     <div class="row g-2 mt-3">
         <div class="col-6 col-sm-3">
             <div class="stat-box stat-total">
@@ -244,7 +250,8 @@
                 if (data.task_ids && data.task_ids.length > 0) {
                     totalTasks = data.task_ids.length;
                     document.getElementById('statTotal').textContent = totalTasks;
-                    setStatusMessage('Processing tasks...');
+                    setStatusMessage(`Queued ${totalTasks} tasks — waiting for workers...`);
+                    logActivity(`${totalTasks} tasks queued and sent to Celery workers`, 'info');
 
                     const taskPromises = data.task_ids.map(taskId =>
                         new Promise(resolve => checkTaskStatus(taskId, resolve))
@@ -274,6 +281,21 @@
         document.getElementById('deleteAllFilesButton').addEventListener('click', deleteAllFiles);
     });
 
+    function logActivity(msg, type) {
+        const log = document.getElementById('activityLogInner');
+        const colors = { success: '#27ae60', fail: '#e74c3c', skip: '#f39c12', info: '#a453ca', pending: '#888' };
+        const icons  = { success: '✓', fail: '✗', skip: '↷', info: '●', pending: '…' };
+        const color  = colors[type] || '#555';
+        const icon   = icons[type]  || '●';
+        const time   = new Date().toLocaleTimeString();
+        const line   = document.createElement('div');
+        line.style.cssText = `color:${color};margin-bottom:3px;`;
+        line.innerHTML = `<span style="color:#aaa;">[${time}]</span> <strong>${icon}</strong> ${msg}`;
+        log.appendChild(line);
+        const wrap = document.getElementById('activityLog');
+        wrap.scrollTop = wrap.scrollHeight;
+    }
+
     function showProgress(msg) {
         completedTasks = 0;
         document.getElementById('progressSection').classList.add('active');
@@ -281,7 +303,9 @@
         document.getElementById('progressBar').textContent = '0%';
         document.getElementById('pulseIndicator').style.display = 'inline-block';
         document.getElementById('progressTitle').textContent = 'Posting in progress...';
+        document.getElementById('activityLogInner').innerHTML = '';
         setStatusMessage(msg);
+        logActivity(msg, 'info');
     }
 
     function hideProgress() {
@@ -292,6 +316,7 @@
         document.getElementById('pulseIndicator').style.display = 'none';
         document.getElementById('progressTitle').textContent = 'All tasks completed!';
         setStatusMessage(`Done — ${doneTasks} posted, ${failTasks} failed, ${skipTasks} skipped.`);
+        logActivity(`All done — ${doneTasks} posted · ${failTasks} failed · ${skipTasks} skipped`, 'info');
         document.getElementById('startProcess').disabled = false;
         document.getElementById('stopProcess').style.display = 'none';
         updateProgressBar();
@@ -320,16 +345,20 @@
             completedTasks++;
             document.getElementById('statSkip').textContent = skipTasks;
             updateProgressBar();
-            setStatusMessage(`Processing... ${completedTasks} of ${totalTasks}`);
+            setStatusMessage(`${completedTasks} of ${totalTasks} done`);
+            logActivity(`Task skipped — domain already posted for this client`, 'skip');
             onComplete('SKIPPED');
             return;
         }
         if (taskId.startsWith('placeholder_task_')) {
             completedTasks++;
             updateProgressBar();
+            logActivity(`Placeholder task — no more sites available`, 'skip');
             onComplete('SKIPPED');
             return;
         }
+
+        logActivity(`Polling task ${taskId.slice(0,8)}… waiting for Celery worker`, 'pending');
 
         fetch(`/get-task-result/${taskId}/`)
             .then(r => r.json())
@@ -340,16 +369,20 @@
                     completedTasks++;
                     document.getElementById('statDone').textContent = doneTasks;
                     updateProgressBar();
-                    setStatusMessage(`Processing... ${completedTasks} of ${totalTasks}`);
+                    setStatusMessage(`${completedTasks} of ${totalTasks} done`);
+                    const domain = data.url ? new URL(data.url).hostname : 'unknown';
+                    logActivity(`Posted → <a href="${data.url}" target="_blank" style="color:#27ae60;">${domain}</a>`, 'success');
                     onComplete(data.status);
                 } else if (data.status === 'FAILURE' || data.status === 'ERROR') {
                     failTasks++;
                     completedTasks++;
                     document.getElementById('statFail').textContent = failTasks;
                     updateProgressBar();
-                    setStatusMessage(`Processing... ${completedTasks} of ${totalTasks}`);
+                    setStatusMessage(`${completedTasks} of ${totalTasks} done`);
+                    logActivity(`Failed — site unreachable or rejected (task ${taskId.slice(0,8)})`, 'fail');
                     onComplete(data.status);
                 } else if (data.status === 'PENDING') {
+                    setStatusMessage(`Waiting for worker… ${completedTasks} of ${totalTasks} done`);
                     setTimeout(() => checkTaskStatus(taskId, onComplete), 2000);
                 }
             })
@@ -358,6 +391,7 @@
                 completedTasks++;
                 document.getElementById('statFail').textContent = failTasks;
                 updateProgressBar();
+                logActivity(`Error checking task ${taskId.slice(0,8)} — network issue`, 'fail');
                 onComplete('ERROR');
             });
     }
