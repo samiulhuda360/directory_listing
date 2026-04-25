@@ -212,16 +212,27 @@ h2 {
             </div>
         </div>
     </nav>
-     <!-- Main content -->
-     <div class="container">
-        {% block content %}
-        <!-- This block will be overridden by child templates -->
-        {% endblock %}
+    <!-- Main content -->
+    <div class="container pb-5">
+        {% block content %}{% endblock %}
     </div>
+
+    <!-- Footer -->
+    <footer style="background:linear-gradient(to right,#a453ca,#85D8CE);margin-top:48px;padding:20px 0;">
+        <div class="container d-flex flex-wrap justify-content-between align-items-center">
+            <div style="color:rgba(255,255,255,0.9);font-size:13px;font-weight:600;">
+                <img src="https://www.searchcombat.com/wp-content/uploads/2022/10/Search-combat-logo-01.png"
+                     alt="Search Combat" height="28" style="filter:brightness(0) invert(1);margin-right:10px;vertical-align:middle;">
+                &copy; {% now "Y" %} Search Combat. All rights reserved.
+            </div>
+            <div style="color:rgba(255,255,255,0.75);font-size:12px;">
+                Directory Listing Automation &nbsp;|&nbsp; cv.seodn.com
+            </div>
+        </div>
+    </footer>
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.6.0/dist/socket.io.min.js"></script>
-    <!-- Bootstrap JS, Popper.js -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
