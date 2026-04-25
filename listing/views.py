@@ -170,10 +170,10 @@ def get_task_result(request, task_id):
                 logger.warning("Task returned an empty URL.")
                 failure_url = f"{website} - Failed to Post in this Domain" if website else "Task Failed"
                 GeneratedURL.objects.create(user=request.user, url=failure_url)
-                return JsonResponse({'status': 'FAILURE', 'error': 'Empty URL'})
+                return JsonResponse({'status': 'FAILURE', 'error': 'Empty URL', 'website': website or 'unknown'})
         except Exception as e:
             logger.error(f"Error in get_task_result in {website}: {e}", exc_info=True)
-            return JsonResponse({'status': 'ERROR', 'error': str(e)})
+            return JsonResponse({'status': 'ERROR', 'error': str(e), 'website': website if 'website' in dir() else 'unknown'})
     else:
         return JsonResponse({'status': 'PENDING'})
 

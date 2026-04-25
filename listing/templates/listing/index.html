@@ -379,7 +379,9 @@
                     document.getElementById('statFail').textContent = failTasks;
                     updateProgressBar();
                     setStatusMessage(`${completedTasks} of ${totalTasks} done`);
-                    logActivity(`Failed — site unreachable or rejected (task ${taskId.slice(0,8)})`, 'fail');
+                    const failSite = data.website || 'unknown site';
+                    const failReason = data.error || 'unknown reason';
+                    logActivity(`Failed → ${failSite} — ${failReason === 'Empty URL' ? 'site rejected the post (down, DB error, or blocked)' : failReason}`, 'fail');
                     onComplete(data.status);
                 } else if (data.status === 'PENDING') {
                     setStatusMessage(`Waiting for worker… ${completedTasks} of ${totalTasks} done`);
