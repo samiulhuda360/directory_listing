@@ -3,346 +3,438 @@
 {% block title %}Directory Listing Automation{% endblock %}
 
 {% block content %}
-<form id="uploadForm" method="post" action="{% url 'home' %}" enctype="multipart/form-data" class="mb-4">
-    {% csrf_token %}
-    <div class="row g-3">
-        <div class="col-md-3">
-            <label for="excel_file" class="form-label">Select an Excel file</label>
-            <input type="file" class="form-control" name="excel_file" id="excel_file">
-        </div>
-        <div class="col-md-3">
-            <label for="site_number" class="form-label">Number Of Sites</label>
-            <input type="number" class="form-control" name="site_number" id="site_number" placeholder="Enter Site Number">
-        </div>
-    </div>
-    <div class="col-md-3 mt-3">
-        <div class="form-check">
-            <input type="checkbox" id="match_root_domain" name="match_root_domain">
-            <label for="match_root_domain">Match Root Domain Only</label>
-        </div>
-    </div>
-    <div class="row mt-3">
-        <div class="col">
-            <button type="button" id="startProcess" class="btn btn-primary" style="background-color: #a453ca;">Start Posting</button>
-        </div>
-        <div class="col">
-            <button type="button" id="stopProcess" class="btn btn-danger mt-4">Stop Process</button>
-        </div>
-    </div>
-    <div>
-        <a href="{% url 'download_excel' %}" class="btn btn-success">Download Latest Report</a>
-    </div>
-</form>
+<style>
+    .upload-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        padding: 28px 32px;
+        margin-bottom: 24px;
+    }
+    .upload-card h5 {
+        font-weight: 700;
+        color: #444;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #a453ca22;
+        padding-bottom: 10px;
+    }
+    .btn-post {
+        background: linear-gradient(135deg, #a453ca, #7b2fa8);
+        border: none;
+        color: #fff;
+        padding: 10px 28px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 15px;
+        transition: opacity 0.2s;
+    }
+    .btn-post:hover { opacity: 0.88; color: #fff; }
+    .btn-post:disabled { opacity: 0.55; cursor: not-allowed; }
 
-<div class="row">
-    <div class="col-md-6 mt-2">
-        <div class="row">
-            <div class="col-md-7 pr-md-1">
-                <select id="fileDropdown" class="form-control">
-                    <option value="">Select a report to download</option>
-                </select>
+    #progressSection {
+        display: none;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        padding: 24px 32px;
+        margin-bottom: 24px;
+    }
+    #progressSection.active { display: block; }
+
+    .progress { height: 18px; border-radius: 10px; background: #f0e6f8; }
+    .progress-bar {
+        background: linear-gradient(90deg, #a453ca, #85D8CE);
+        border-radius: 10px;
+        transition: width 0.4s ease;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .stat-box {
+        text-align: center;
+        padding: 12px 16px;
+        border-radius: 10px;
+        font-weight: 700;
+    }
+    .stat-box .number { font-size: 26px; line-height: 1; }
+    .stat-box .label { font-size: 12px; color: #888; margin-top: 4px; }
+    .stat-total { background: #f5f0fb; color: #a453ca; }
+    .stat-done  { background: #eafaf1; color: #27ae60; }
+    .stat-fail  { background: #fdf3f2; color: #e74c3c; }
+    .stat-skip  { background: #fef9ec; color: #f39c12; }
+
+    #statusMessage {
+        font-size: 13px;
+        color: #888;
+        margin-top: 8px;
+    }
+
+    .reports-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        padding: 20px 28px;
+        margin-bottom: 24px;
+    }
+    .reports-card h6 {
+        font-weight: 700;
+        color: #555;
+        margin-bottom: 14px;
+    }
+
+    #linksTable thead th { background: linear-gradient(135deg, #a453ca, #85D8CE); color: #fff; border: none; }
+    #linksTable { border-radius: 10px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+    #linksTable tbody tr:hover { background: #f9f4fd; }
+
+    #summaryUrlContainer a { color: #a453ca; font-weight: 600; }
+
+    .pulse-dot {
+        display: inline-block;
+        width: 10px; height: 10px;
+        background: #a453ca;
+        border-radius: 50%;
+        margin-right: 8px;
+        animation: pulse 1.2s infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.5); opacity: 0.5; }
+    }
+</style>
+
+<!-- Upload & Config Card -->
+<div class="upload-card">
+    <h5>Post Configuration</h5>
+    <form id="uploadForm" method="post" action="{% url 'home' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label for="excel_file" class="form-label fw-semibold">Excel File</label>
+                <input type="file" class="form-control" name="excel_file" id="excel_file" accept=".xlsx,.xls">
             </div>
-            <div class="col-md-2 pl-md-1">
-                <button id="downloadFileButton" class="btn btn-success mb-1 w-115">Download</button>
+            <div class="col-md-3">
+                <label for="site_number" class="form-label fw-semibold">Number of Sites</label>
+                <input type="number" class="form-control" name="site_number" id="site_number" placeholder="e.g. 10" min="1">
             </div>
-            <div class="col-md-3 pl-md-1">
-                <button id="deleteAllFilesButton" class="btn btn-danger mb-1 w-100">Delete All Files</button>
+            <div class="col-md-3 d-flex align-items-end pb-1">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="match_root_domain" name="match_root_domain">
+                    <label class="form-check-label fw-semibold" for="match_root_domain">Match Root Domain Only</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-3 mt-4 flex-wrap align-items-center">
+            <button type="button" id="startProcess" class="btn btn-post">
+                &#9654; Start Posting
+            </button>
+            <button type="button" id="stopProcess" class="btn btn-outline-danger" style="border-radius:8px; font-weight:600; padding:10px 24px;">
+                &#9646;&#9646; Stop Process
+            </button>
+            <a href="{% url 'download_excel' %}" class="btn btn-outline-success ms-auto" style="border-radius:8px; font-weight:600; padding:10px 22px;">
+                &#8595; Download Latest Report
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- Progress Section (hidden until posting starts) -->
+<div id="progressSection">
+    <div class="d-flex align-items-center mb-3">
+        <span class="pulse-dot" id="pulseIndicator"></span>
+        <strong id="progressTitle">Posting in progress...</strong>
+    </div>
+    <div class="progress mb-2">
+        <div id="progressBar" class="progress-bar" role="progressbar" style="width:0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+    </div>
+    <div id="statusMessage">Initialising tasks...</div>
+    <div class="row g-2 mt-3">
+        <div class="col-6 col-sm-3">
+            <div class="stat-box stat-total">
+                <div class="number" id="statTotal">0</div>
+                <div class="label">Total</div>
+            </div>
+        </div>
+        <div class="col-6 col-sm-3">
+            <div class="stat-box stat-done">
+                <div class="number" id="statDone">0</div>
+                <div class="label">Posted</div>
+            </div>
+        </div>
+        <div class="col-6 col-sm-3">
+            <div class="stat-box stat-fail">
+                <div class="number" id="statFail">0</div>
+                <div class="label">Failed</div>
+            </div>
+        </div>
+        <div class="col-6 col-sm-3">
+            <div class="stat-box stat-skip">
+                <div class="number" id="statSkip">0</div>
+                <div class="label">Skipped</div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Reports Card -->
+<div class="reports-card">
+    <h6>Download Reports</h6>
+    <div class="d-flex gap-2 flex-wrap align-items-center">
+        <select id="fileDropdown" class="form-select" style="max-width:320px;">
+            <option value="">Select a report to download</option>
+        </select>
+        <button id="downloadFileButton" class="btn btn-success" style="border-radius:8px; font-weight:600;">&#8595; Download</button>
+        <button id="deleteAllFilesButton" class="btn btn-danger" style="border-radius:8px; font-weight:600;">&#128465; Delete All Files</button>
+    </div>
+</div>
+
+<!-- Summary URL -->
+<div id="summaryUrlContainer" class="mb-3"></div>
+
+<!-- Results Table -->
+<div style="border-radius:12px; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+    <table id="linksTable" class="table table-striped table-bordered mb-0">
+        <thead>
+            <tr>
+                <th style="width:60px">#</th>
+                <th>Link</th>
+                <th style="width:160px">Author</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
 <script>
-    let completedTasks = 0
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('startProcess').addEventListener('click', function(event) {
-                event.preventDefault();
-                let siteNumber = document.getElementById('site_number').value;
-                let excelFile = document.getElementById('excel_file').files.length;
+    let completedTasks = 0;
+    let totalTasks = 0;
+    let doneTasks = 0;
+    let failTasks = 0;
+    let skipTasks = 0;
 
-                if (excelFile === 0) {
-                    alert('Please upload an Excel file.');
-                    return;
+    document.addEventListener('DOMContentLoaded', function () {
+
+        document.getElementById('startProcess').addEventListener('click', function () {
+            const siteNumber = document.getElementById('site_number').value;
+            const excelFile = document.getElementById('excel_file').files.length;
+
+            if (excelFile === 0) { alert('Please upload an Excel file.'); return; }
+            if (siteNumber === '' || isNaN(siteNumber) || parseInt(siteNumber) <= 0) { alert('Please enter a valid site number.'); return; }
+
+            clearTable();
+            resetStats();
+            showProgress('Sending request...');
+            document.getElementById('startProcess').disabled = true;
+
+            const form = document.getElementById('uploadForm');
+            const formData = new FormData(form);
+            const csrftokenPost = getCookie('csrftoken');
+
+            fetch('{% url "home" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrftokenPost },
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) return response.json().then(d => { throw new Error(d.error || 'Server error.'); });
+                return response.json();
+            })
+            .then(data => {
+                if (data.task_ids && data.task_ids.length > 0) {
+                    totalTasks = data.task_ids.length;
+                    document.getElementById('statTotal').textContent = totalTasks;
+                    setStatusMessage('Processing tasks...');
+
+                    const taskPromises = data.task_ids.map(taskId =>
+                        new Promise(resolve => checkTaskStatus(taskId, resolve))
+                    );
+
+                    Promise.all(taskPromises).then(() => {
+                        finishProgress();
+                        fetchGeneratedLinks();
+                        fetchFileList();
+                    });
+                } else {
+                    hideProgress();
+                    document.getElementById('startProcess').disabled = false;
+                    alert('No tasks were returned from the server.');
                 }
-
-                if (siteNumber === '' || isNaN(siteNumber) || parseInt(siteNumber) <= 0) {
-                    alert('Please enter a valid site number.');
-                    return;
-                }
-
-                clearTable();
-
-                let form = document.getElementById('uploadForm');
-                let formData = new FormData(form);
-
-                console.log("Form submitted, awaiting task IDs...");
-
-                function displaySummaryURL(postUrl) {
-                    const summaryUrlContainer = document.getElementById('summaryUrlContainer');
-                    
-                    // Clear any existing content
-                    summaryUrlContainer.innerHTML = '';
-                
-                    if (postUrl) {
-                        // Create a new H4 element with the post URL
-                        const summaryUrlElement = document.createElement('h4');
-                        summaryUrlElement.innerHTML = `Summary URL: <a href="${postUrl}" target="_blank">${postUrl}</a>`;
-                        
-                        // Append it to the container
-                        summaryUrlContainer.appendChild(summaryUrlElement);
-                    } else {
-                        console.error("No post URL available to display");
-                    }
-                }
-
-                function fetchGeneratedLinks() {
-                    fetch('/get-generated-links-json/')
-                        .then(response => response.json())
-                        .then(data => {                
-                            if (Array.isArray(data.links)) {
-                                console.log("Fetched links:", data.links);
-                                let tableBody = document.querySelector('#linksTable tbody');
-                                tableBody.innerHTML = ''; // Clear the table before adding new rows
-                                
-                                data.links.forEach((linkData, index) => {
-                                    addLinkToTable(linkData, index);
-                                });
-                
-                                // Check if 'post_url' is part of the response and display it
-                                if (data.post_url) {
-                                    console.log("Post URL:", data.post_url);  // Log the post URL to check its value
-                                    displaySummaryURL(data.post_url);  // Call the display function to show the post URL
-                                }
-                            } else {
-                                console.error('Fetched data does not contain a links array:', data);
-                            }
-                        })
-                        .catch(error => console.error('Error:', error));
-                }
-                
-                
-                const csrftokenPost = getCookie('csrftoken');
-                fetch('{% url "home" %}', {
-                    method: 'POST',
-                    headers: { 'X-CSRFToken': csrftokenPost },
-                    body: formData
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(data => {
-                            throw new Error(data.error || 'Server responded with an error.');
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log("Received data:", data);  // Log the response to check if post_url is returned
-                
-                    if (data.task_ids && data.task_ids.length > 0) {
-                        let taskPromises = data.task_ids.map(taskId => {
-                            return new Promise(resolve => {
-                                checkTaskStatus(taskId, resolve);
-                            });
-                        });
-                
-                        Promise.all(taskPromises).then(statuses => {
-                            let completedTasks = statuses.filter(status => status === 'SUCCESS' || status === 'SKIPPED').length;
-                            let failedTasks = statuses.length - completedTasks;
-                
-                            if (completedTasks + failedTasks === data.task_ids.length) {
-                                alert("All tasks have been processed, including skipped ones.");
-                
-                                fetchGeneratedLinks();
-                                fetchFileList();  // Refresh file list
-                            }
-                        });
-                    } else {
-                        console.error('Form submission did not return task IDs');
-                    }
-                })
-                .catch(error => alert(error.message));
+            })
+            .catch(error => {
+                hideProgress();
+                document.getElementById('startProcess').disabled = false;
+                alert(error.message);
             });
+        });
 
-            fetchFileList(); // Fetch the list of files when the page loads
-                                  
-            
-            // Add event listeners for download and delete buttons
-            var downloadButton = document.querySelector("#downloadFileButton");
-                if (downloadButton) {
-                    downloadButton.addEventListener("click", downloadFile);
-                } else {
-                    console.error('Download button not found');
-                }
+        fetchFileList();
 
-                var deleteButton = document.querySelector("#deleteAllFilesButton");
-                if (deleteButton) {
-                    deleteButton.addEventListener("click", deleteAllFiles);
-                } else {
-                    console.error('Delete button not found');
-                }
-            });
+        document.getElementById('downloadFileButton').addEventListener('click', downloadFile);
+        document.getElementById('deleteAllFilesButton').addEventListener('click', deleteAllFiles);
+    });
 
-            function fetchFileList() {
-                fetch('/list-files/')
-                    .then(response => response.json())
-                    .then(files => populateDropdown(files))
-                    .catch(error => console.error('Error:', error));
-            }
+    function showProgress(msg) {
+        completedTasks = 0;
+        document.getElementById('progressSection').classList.add('active');
+        document.getElementById('progressBar').style.width = '0%';
+        document.getElementById('progressBar').textContent = '0%';
+        document.getElementById('pulseIndicator').style.display = 'inline-block';
+        document.getElementById('progressTitle').textContent = 'Posting in progress...';
+        setStatusMessage(msg);
+    }
 
-            function populateDropdown(files) {
-                let dropdown = document.querySelector('#fileDropdown');
-                dropdown.innerHTML = '<option value="">Select a report to download</option>'; // Clear existing options
-                files.forEach(file => {
-                    let option = document.createElement('option');
-                    option.value = file;
-                    option.textContent = file;
-                    dropdown.appendChild(option);
-                });
-            }
+    function hideProgress() {
+        document.getElementById('progressSection').classList.remove('active');
+    }
 
-            function downloadFile() {
-                let selectedFile = document.querySelector('#fileDropdown').value;
-                if (selectedFile) {
-                    window.location.href = `/download-file/?file=${encodeURIComponent(selectedFile)}`;
-                } else {
-                    alert('Please select a file to download.');
-                }
-            }
-            
+    function finishProgress() {
+        document.getElementById('pulseIndicator').style.display = 'none';
+        document.getElementById('progressTitle').textContent = 'All tasks completed!';
+        setStatusMessage(`Done — ${doneTasks} posted, ${failTasks} failed, ${skipTasks} skipped.`);
+        document.getElementById('startProcess').disabled = false;
+        updateProgressBar();
+    }
 
-            function getCookie(name) {
-                    let cookieValue = null;
-                    if (document.cookie && document.cookie !== '') {
-                        const cookies = document.cookie.split(';');
-                        for (let i = 0; i < cookies.length; i++) {
-                            const cookie = cookies[i].trim();
-                            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                                break;
-                            }
-                        }
-                    }
-                    return cookieValue;
-                }
+    function updateProgressBar() {
+        if (totalTasks === 0) return;
+        const pct = Math.round((completedTasks / totalTasks) * 100);
+        document.getElementById('progressBar').style.width = pct + '%';
+        document.getElementById('progressBar').textContent = pct + '%';
+        document.getElementById('progressBar').setAttribute('aria-valuenow', pct);
+    }
 
-            function deleteAllFiles() {
-                    const csrftoken = getCookie('csrftoken');
+    function setStatusMessage(msg) {
+        document.getElementById('statusMessage').textContent = msg;
+    }
 
-                    fetch('/delete-all-files/', { 
-                        method: 'POST',
-                        headers: { 'X-CSRFToken': csrftoken },
-                    })
-                    .then(response => {
-                        if (!response.ok) throw new Error('Problem deleting files');
-                        return response.json();
-                    })
-                    .then(() => {
-                        alert('All files have been deleted.');
-                        fetchFileList(); // Refresh the file list
-                    })
-                    .catch(error => alert(error.message));
-                }
-                
-    
-                function checkTaskStatus(taskId, onComplete) {
-                        if (taskId.startsWith('skipped_task_')) {
-                            console.log(`Task ${taskId} is skipped.`);
-                            addLinkToTable({ url: 'N/A', author_name: 'Skipped' }, completedTasks);
-                            completedTasks++;
-                            onComplete('SKIPPED');
-                            return;
-                        }
+    function resetStats() {
+        totalTasks = 0; doneTasks = 0; failTasks = 0; skipTasks = 0; completedTasks = 0;
+        ['statTotal','statDone','statFail','statSkip'].forEach(id => document.getElementById(id).textContent = '0');
+    }
 
-                        fetch(`/get-task-result/${taskId}/`)
-                            .then(response => response.json())
-                            .then(data => {
-                                console.log(`Received data for task ${taskId}:`, data);
-                                if (data.status === 'SUCCESS') {
-                                    // Ensure we have the author name before calling addLinkToTable
-                                    if (data.author_name) {
-                                        addLinkToTable({ url: data.url, author_name: data.author_name }, completedTasks);
-                                    } else {
-                                        // If author_name is not present, log it and maybe add a placeholder
-                                        console.log(`Author name is missing for task ${taskId}`);
-                                        addLinkToTable({ url: data.url, author_name: 'Unknown' }, completedTasks);
-                                    }
-                                    completedTasks++;
-                                    onComplete(data.status);
-                                } else if (data.status === 'FAILURE' || data.status === 'ERROR') {
-                                    addLinkToTable({ url: 'N/A', author_name: 'Failed/Error' }, completedTasks);
-                                    completedTasks++;
-                                    onComplete(data.status);
-                                } else if (data.status === 'PENDING') {
-                                    setTimeout(() => checkTaskStatus(taskId, onComplete), 2000);
-                                }
-                            })
-                            .catch(error => {
-                                console.error(`Error checking status for task ${taskId}:`, error);
-                                addLinkToTable({ url: 'N/A', author_name: 'Error' }, completedTasks);
-                                completedTasks++;
-                                onComplete('ERROR');
-                            });
-                    }
-            function addLinkToTable(linkData, index) {
-                    let tableBody = document.querySelector('#linksTable tbody');
-                    console.log(`Adding to table:`, linkData, index); // Log to verify the values
-                    // Avoid adding a row if linkData is undefined or contains "N/A"
-                    if (!linkData || linkData.url === "N/A" || typeof index !== 'number') {
-                        return;
-                    }
-
-                    let row = tableBody.insertRow();
-                    let cell1 = row.insertCell(0);
-                    let cell2 = row.insertCell(1);
-                    let cell3 = row.insertCell(2);
-
-                    cell1.innerHTML = index + 1; // This will display the index starting from 1
-                    cell2.innerHTML = `<a href="${linkData.url}" target="_blank">${linkData.url}</a>`;
-                    cell3.innerHTML = linkData.author_name;
-                }        
-                function fetchGeneratedLinks() {
-                    fetch('/get-generated-links-json/')
-                        .then(response => response.json())
-                        .then(data => {
-                            if (Array.isArray(data.links)) {
-                                console.log("Fetched links:", data.links);
-                                let tableBody = document.querySelector('#linksTable tbody');
-                                tableBody.innerHTML = ''; // Clear the table before adding new rows
-                                data.links.forEach((linkData, index) => {
-                                    addLinkToTable(linkData, index);
-                                });
-                            } else {
-                                console.error('Fetched data does not contain a links array:', data);
-                            }
-                        })
-                        .catch(error => console.error('Error:', error));
-                }
-                                
-        function clearTable() {
-            let tableBody = document.querySelector('#linksTable tbody');
-            tableBody.innerHTML = ''; // Clear the table
+    function checkTaskStatus(taskId, onComplete) {
+        if (taskId.startsWith('skipped_task_')) {
+            skipTasks++;
+            completedTasks++;
+            document.getElementById('statSkip').textContent = skipTasks;
+            updateProgressBar();
+            setStatusMessage(`Processing... ${completedTasks} of ${totalTasks}`);
+            onComplete('SKIPPED');
+            return;
         }
-        
+        if (taskId.startsWith('placeholder_task_')) {
+            completedTasks++;
+            updateProgressBar();
+            onComplete('SKIPPED');
+            return;
+        }
+
+        fetch(`/get-task-result/${taskId}/`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'SUCCESS') {
+                    addLinkToTable({ url: data.url, author_name: data.author_name || 'Unknown' }, completedTasks);
+                    doneTasks++;
+                    completedTasks++;
+                    document.getElementById('statDone').textContent = doneTasks;
+                    updateProgressBar();
+                    setStatusMessage(`Processing... ${completedTasks} of ${totalTasks}`);
+                    onComplete(data.status);
+                } else if (data.status === 'FAILURE' || data.status === 'ERROR') {
+                    failTasks++;
+                    completedTasks++;
+                    document.getElementById('statFail').textContent = failTasks;
+                    updateProgressBar();
+                    setStatusMessage(`Processing... ${completedTasks} of ${totalTasks}`);
+                    onComplete(data.status);
+                } else if (data.status === 'PENDING') {
+                    setTimeout(() => checkTaskStatus(taskId, onComplete), 2000);
+                }
+            })
+            .catch(() => {
+                failTasks++;
+                completedTasks++;
+                document.getElementById('statFail').textContent = failTasks;
+                updateProgressBar();
+                onComplete('ERROR');
+            });
+    }
+
+    function addLinkToTable(linkData, index) {
+        if (!linkData || linkData.url === 'N/A' || typeof index !== 'number') return;
+        const tableBody = document.querySelector('#linksTable tbody');
+        const row = tableBody.insertRow();
+        row.insertCell(0).innerHTML = index + 1;
+        row.insertCell(1).innerHTML = `<a href="${linkData.url}" target="_blank">${linkData.url}</a>`;
+        row.insertCell(2).innerHTML = linkData.author_name;
+    }
+
+    function clearTable() {
+        document.querySelector('#linksTable tbody').innerHTML = '';
+    }
+
+    function fetchGeneratedLinks() {
+        fetch('/get-generated-links-json/')
+            .then(r => r.json())
+            .then(data => {
+                if (Array.isArray(data.links)) {
+                    const tableBody = document.querySelector('#linksTable tbody');
+                    tableBody.innerHTML = '';
+                    data.links.forEach((linkData, index) => addLinkToTable(linkData, index));
+                    if (data.post_url) displaySummaryURL(data.post_url);
+                }
+            })
+            .catch(e => console.error('Error:', e));
+    }
+
+    function displaySummaryURL(postUrl) {
+        const c = document.getElementById('summaryUrlContainer');
+        c.innerHTML = postUrl
+            ? `<div class="alert" style="background:#f5f0fb;border:1px solid #d4a8e8;color:#7b2fa8;border-radius:10px;"><strong>Summary URL:</strong> <a href="${postUrl}" target="_blank">${postUrl}</a></div>`
+            : '';
+    }
+
+    function fetchFileList() {
+        fetch('/list-files/')
+            .then(r => r.json())
+            .then(files => {
+                const dd = document.getElementById('fileDropdown');
+                dd.innerHTML = '<option value="">Select a report to download</option>';
+                files.forEach(f => {
+                    const o = document.createElement('option');
+                    o.value = f; o.textContent = f;
+                    dd.appendChild(o);
+                });
+            })
+            .catch(e => console.error('Error:', e));
+    }
+
+    function downloadFile() {
+        const sel = document.getElementById('fileDropdown').value;
+        if (sel) window.location.href = `/download-file/?file=${encodeURIComponent(sel)}`;
+        else alert('Please select a file to download.');
+    }
+
+    function deleteAllFiles() {
+        if (!confirm('Delete all report files?')) return;
+        fetch('/delete-all-files/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') }
+        })
+        .then(r => { if (!r.ok) throw new Error('Problem deleting files'); return r.json(); })
+        .then(() => { alert('All files deleted.'); fetchFileList(); })
+        .catch(e => alert(e.message));
+    }
+
+    function getCookie(name) {
+        let val = null;
+        if (document.cookie && document.cookie !== '') {
+            document.cookie.split(';').forEach(c => {
+                c = c.trim();
+                if (c.startsWith(name + '=')) val = decodeURIComponent(c.substring(name.length + 1));
+            });
+        }
+        return val;
+    }
 </script>
-
-        
-        
-<!-- Summary URL container -->
-<div id="summaryUrlContainer" class="text-center my-5">
-    <!-- The Summary URL will be injected here dynamically -->
-</div>
-
-<!-- Table for displaying links -->
-<table id="linksTable" class="table table-striped table-bordered">
-    <thead>
-        <tr>
-            <th scope="col">#</th>
-            <th scope="col">Link</th>
-        </tr>
-    </thead>
-    <tbody>
-        <!-- Rows will be dynamically added here by JavaScript -->
-    </tbody>
-</table>
-
-
-{% endblock %} 
+{% endblock %}
