@@ -392,7 +392,8 @@
         failedSites = [];
         ['statTotal','statDone','statFail','statSkip'].forEach(id => document.getElementById(id).textContent = '0');
         document.getElementById('failReport').style.display = 'none';
-        document.getElementById('failReport').innerHTML = '';
+        document.getElementById('failReportTitle').textContent = '';
+        document.getElementById('failReportBody').innerHTML = '';
     }
 
     function checkTaskStatus(taskId, onComplete) {
@@ -420,7 +421,7 @@
             .then(r => r.json())
             .then(data => {
                 if (data.status === 'SUCCESS') {
-                    addLinkToTable({ url: data.url, author_name: data.author_name || 'Unknown' }, completedTasks);
+                    addLinkToTable({ url: data.url, author_name: data.author_name || 'Unknown' }, doneTasks);
                     doneTasks++;
                     completedTasks++;
                     document.getElementById('statDone').textContent = doneTasks;
