@@ -150,7 +150,7 @@
     <div id="statusMessage">Initialising tasks...</div>
 
     <!-- Live activity log -->
-    <div id="activityLog" class="mt-3" style="background:#f8f5fc;border:1px solid #e0cef0;border-radius:10px;padding:12px 16px;max-height:160px;overflow-y:auto;font-size:13px;font-family:monospace;">
+    <div id="activityLog" class="mt-3" style="background:#f8f5fc;border:1px solid #e0cef0;border-radius:10px;padding:12px 16px;font-size:13px;font-family:monospace;min-height:76px;">
         <div id="activityLogInner"></div>
     </div>
 
@@ -250,8 +250,8 @@
                 if (data.task_ids && data.task_ids.length > 0) {
                     totalTasks = data.task_ids.length;
                     document.getElementById('statTotal').textContent = totalTasks;
-                    setStatusMessage(`Queued ${totalTasks} tasks — waiting for workers...`);
-                    logActivity(`${totalTasks} tasks queued and sent to Celery workers`, 'info');
+                    setStatusMessage(`${totalTasks} sites queued — let's go!`);
+                    logActivity(`📋 ${totalTasks} sites lined up and ready to roll`, 'info');
 
                     const taskPromises = data.task_ids.map(taskId =>
                         new Promise(resolve => checkTaskStatus(taskId, resolve))
@@ -281,19 +281,29 @@
         document.getElementById('deleteAllFilesButton').addEventListener('click', deleteAllFiles);
     });
 
+    const funnyPending = [
+        '🐢 Still working... grabbing a coffee?',
+        '🔄 Spinning up the hamster wheel...',
+        '📡 Pinging the internet gods...',
+        '⏳ Patience is a virtue (allegedly)...',
+        '🤖 Robot is thinking really hard...',
+        '🚀 Preparing for liftoff...',
+        '🌐 Knocking on the website door...',
+        '💭 Waiting... like a kettle that never boils...',
+    ];
+    let pendingIdx = 0;
+
     function logActivity(msg, type) {
         const log = document.getElementById('activityLogInner');
         const colors = { success: '#27ae60', fail: '#e74c3c', skip: '#f39c12', info: '#a453ca', pending: '#888' };
-        const icons  = { success: '✓', fail: '✗', skip: '↷', info: '●', pending: '…' };
         const color  = colors[type] || '#555';
-        const icon   = icons[type]  || '●';
         const time   = new Date().toLocaleTimeString();
         const line   = document.createElement('div');
-        line.style.cssText = `color:${color};margin-bottom:3px;`;
-        line.innerHTML = `<span style="color:#aaa;">[${time}]</span> <strong>${icon}</strong> ${msg}`;
+        line.style.cssText = `color:${color};margin-bottom:2px;`;
+        line.innerHTML = `<span style="color:#bbb;font-size:11px;">${time}</span>  ${msg}`;
         log.appendChild(line);
-        const wrap = document.getElementById('activityLog');
-        wrap.scrollTop = wrap.scrollHeight;
+        // Keep only last 4 lines
+        while (log.children.length > 4) log.removeChild(log.firstChild);
     }
 
     function showProgress(msg) {
@@ -304,8 +314,9 @@
         document.getElementById('pulseIndicator').style.display = 'inline-block';
         document.getElementById('progressTitle').textContent = 'Posting in progress...';
         document.getElementById('activityLogInner').innerHTML = '';
+        pendingIdx = 0;
         setStatusMessage(msg);
-        logActivity(msg, 'info');
+        logActivity('🚀 Launching the posting machine...', 'info');
     }
 
     function hideProgress() {
@@ -316,7 +327,7 @@
         document.getElementById('pulseIndicator').style.display = 'none';
         document.getElementById('progressTitle').textContent = 'All tasks completed!';
         setStatusMessage(`Done — ${doneTasks} posted, ${failTasks} failed, ${skipTasks} skipped.`);
-        logActivity(`All done — ${doneTasks} posted · ${failTasks} failed · ${skipTasks} skipped`, 'info');
+        logActivity(`🎉 All wrapped up! ${doneTasks} posted · ${failTasks} ghosts · ${skipTasks} skipped`, 'info');
         document.getElementById('startProcess').disabled = false;
         document.getElementById('stopProcess').style.display = 'none';
         updateProgressBar();
@@ -346,19 +357,19 @@
             document.getElementById('statSkip').textContent = skipTasks;
             updateProgressBar();
             setStatusMessage(`${completedTasks} of ${totalTasks} done`);
-            logActivity(`Task skipped — domain already posted for this client`, 'skip');
+            logActivity(`⏭️ Already been here, done that — skipping this domain`, 'skip');
             onComplete('SKIPPED');
             return;
         }
         if (taskId.startsWith('placeholder_task_')) {
             completedTasks++;
             updateProgressBar();
-            logActivity(`Placeholder task — no more sites available`, 'skip');
+            logActivity(`🏁 Ran out of sites — that's all folks`, 'skip');
             onComplete('SKIPPED');
             return;
         }
 
-        logActivity(`Polling task ${taskId.slice(0,8)}… waiting for Celery worker`, 'pending');
+        logActivity(funnyPending[pendingIdx++ % funnyPending.length], 'pending');
 
         fetch(`/get-task-result/${taskId}/`)
             .then(r => r.json())
@@ -371,7 +382,7 @@
                     updateProgressBar();
                     setStatusMessage(`${completedTasks} of ${totalTasks} done`);
                     const domain = data.url ? new URL(data.url).hostname : 'unknown';
-                    logActivity(`Posted → <a href="${data.url}" target="_blank" style="color:#27ae60;">${domain}</a>`, 'success');
+                    logActivity(`✅ Nailed it! → <a href="${data.url}" target="_blank" style="color:#27ae60;">${domain}</a>`, 'success');
                     onComplete(data.status);
                 } else if (data.status === 'FAILURE' || data.status === 'ERROR') {
                     failTasks++;
@@ -380,11 +391,10 @@
                     updateProgressBar();
                     setStatusMessage(`${completedTasks} of ${totalTasks} done`);
                     const failSite = data.website || 'unknown site';
-                    const failReason = data.error || 'unknown reason';
-                    logActivity(`Failed → ${failSite} — ${failReason === 'Empty URL' ? 'site rejected the post (down, DB error, or blocked)' : failReason}`, 'fail');
+                    logActivity(`😬 ${failSite} said nope — site is down or having a bad day`, 'fail');
                     onComplete(data.status);
                 } else if (data.status === 'PENDING') {
-                    setStatusMessage(`Waiting for worker… ${completedTasks} of ${totalTasks} done`);
+                    setStatusMessage(`${completedTasks} of ${totalTasks} done — hang tight...`);
                     setTimeout(() => checkTaskStatus(taskId, onComplete), 2000);
                 }
             })
@@ -393,7 +403,7 @@
                 completedTasks++;
                 document.getElementById('statFail').textContent = failTasks;
                 updateProgressBar();
-                logActivity(`Error checking task ${taskId.slice(0,8)} — network issue`, 'fail');
+                logActivity(`🌐 Lost the signal on that one — network hiccup`, 'fail');
                 onComplete('ERROR');
             });
     }
