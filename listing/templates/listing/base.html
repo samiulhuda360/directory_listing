@@ -81,54 +81,101 @@ h2 {
 </head>
 <body class="container-fluid no-padding" style="margin: 0; padding: 0;">
     <!-- Navbar with Home, Site Data and Logout -->
-    <nav class="navbar navbar-expand-lg navbar-light mb-4" style="background: linear-gradient(to right, #a453ca, #85D8CE);">
-    <div class="container">
-<a class="navbar-brand" href="">
-    <img src="https://www.searchcombat.com/wp-content/uploads/2022/10/Search-combat-logo-01.png" alt="Search Combat Logo" height="40">
-</a>            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+    <style>
+        .main-nav { background: linear-gradient(to right, #a453ca, #85D8CE); }
+        .main-nav .navbar-brand img { filter: brightness(0) invert(1); }
+        .main-nav .nav-link {
+            color: rgba(255,255,255,0.88) !important;
+            font-size: 13.5px;
+            font-weight: 600;
+            padding: 6px 12px !important;
+            border-radius: 6px;
+            transition: background 0.18s, color 0.18s;
+            white-space: nowrap;
+        }
+        .main-nav .nav-link:hover,
+        .main-nav .nav-link.active {
+            background: rgba(255,255,255,0.18);
+            color: #fff !important;
+        }
+        .main-nav .dropdown-menu {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.13);
+            padding: 6px;
+            min-width: 180px;
+        }
+        .main-nav .dropdown-item {
+            font-size: 13.5px;
+            font-weight: 600;
+            border-radius: 6px;
+            padding: 8px 14px;
+            color: #555;
+        }
+        .main-nav .dropdown-item:hover { background: #f5f0fb; color: #a453ca; }
+        .main-nav .dropdown-item.active-sub { color: #a453ca; background: #f5f0fb; }
+        .main-nav .dropdown-toggle::after { margin-left: 5px; }
+        .btn-logout {
+            background: rgba(255,255,255,0.15);
+            color: #fff !important;
+            border: 1.5px solid rgba(255,255,255,0.5);
+            border-radius: 7px;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 5px 16px;
+            transition: background 0.18s;
+        }
+        .btn-logout:hover { background: rgba(255,255,255,0.28); }
+    </style>
+
+    <nav class="navbar navbar-expand-lg main-nav mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <img src="https://www.searchcombat.com/wp-content/uploads/2022/10/Search-combat-logo-01.png" alt="Search Combat" height="36">
+            </a>
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    {% if user.is_authenticated %}
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.path == '/' %}active{% endif %}" aria-current="page" href="/">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.resolver_match.url_name == 'unique_consecutive_domain' %}active{% endif %}" href="{% url 'unique_consecutive_domain' %}">Unique Consecutive Domain</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.resolver_match.url_name == 'site_data' %}active{% endif %}" href="{% url 'site_data' %}">Site Data</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.resolver_match.url_name == 'rest_api_test' %}active{% endif %}" href="{% url 'rest_api_test' %}">Rest Api Test</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.resolver_match.url_name == 'post_update' %}active{% endif %}" href="{% url 'post_update' %}">Update Post</a>
-                        </li>   
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.resolver_match.url_name == 'delete_posts' %}active{% endif %}" href="{% url 'delete_posts' %}">Delete Posts</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.resolver_match.url_name == 'content_gen' %}active{% endif %}" href="{% url 'content_gen' %}">GEO Network</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.resolver_match.url_name == 'summary_post' %}active{% endif %}" href="{% url 'summary_post' %}">Summary Submission</a>
-                        </li>               
-                </ul>
-                
-                {% else %}
-                <ul class="navbar-nav me-auto">
-                </ul>
-                {% endif %}
-                <ul class="navbar-nav">
+                {% if user.is_authenticated %}
+                <ul class="navbar-nav me-auto align-items-lg-center gap-1">
                     <li class="nav-item">
-                        {% if user.is_authenticated %}
-                            <a class="nav-link btn btn-outline-danger" href="{% url 'logout' %}">Logout</a>
-                        {% else %}
-                        {% endif %}
-                    </li>                    
+                        <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'unique_consecutive_domain' %}active{% endif %}" href="{% url 'unique_consecutive_domain' %}">Unique Domain</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'site_data' %}active{% endif %}" href="{% url 'site_data' %}">Site Data</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'rest_api_test' %}active{% endif %}" href="{% url 'rest_api_test' %}">API Test</a>
+                    </li>
+                    <!-- Posts dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {% if request.resolver_match.url_name in 'post_update,delete_posts' %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Posts
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item {% if request.resolver_match.url_name == 'post_update' %}active-sub{% endif %}" href="{% url 'post_update' %}">&#9998; Update Post</a></li>
+                            <li><a class="dropdown-item {% if request.resolver_match.url_name == 'delete_posts' %}active-sub{% endif %}" href="{% url 'delete_posts' %}">&#128465; Delete Posts</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'content_gen' %}active{% endif %}" href="{% url 'content_gen' %}">GEO Network</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'summary_post' %}active{% endif %}" href="{% url 'summary_post' %}">Summary</a>
+                    </li>
                 </ul>
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link btn-logout" href="{% url 'logout' %}">Logout</a>
+                    </li>
+                </ul>
+                {% else %}
+                <ul class="navbar-nav me-auto"></ul>
+                {% endif %}
             </div>
         </div>
     </nav>
