@@ -1,60 +1,45 @@
 {% extends "listing/base.html" %}
 {% load static %}
-
-{% block title %}Update Post{% endblock %}
+{% block title %}Summary Submission{% endblock %}
 
 {% block content %}
 
-<div class="container mt-4">
-    <h2 class="mb-3">Publish URLs Summary Post</h2>
+{% if messages %}
+<div class="mb-3">
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-page">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
 
-    <!-- Display Success or Error Messages -->
-    {% if messages %}
-        <div class="alert alert-dismissible fade show" role="alert">
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} mt-2">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        </div>
-    {% endif %}
-
-    <!-- Form for Business Information -->
+<div class="page-card">
+    <h5>Publish URLs Summary Post</h5>
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        
-        <!-- Form content will take available space but not stretch too far -->
-        <div class="mb-2">
-            <label for="businessName" class="form-label">Post Title</label>
-            <input type="text" class="form-control" id="businessName" name="company_name" placeholder="Enter business name">
-        </div>
-    
-        <div class="mb-3">
-            <label for="businessDescription" class="form-label">Business Description</label>
-            <textarea class="form-control" id="businessDescription" name="description" rows="3" placeholder="Enter business description"></textarea>
-        </div>   
-    
-        <div class="mb-2">
-            <label for="urlList" class="form-label">URLs</label>
-            <textarea class="form-control" id="urlList" name="url_list" rows="5" placeholder="Enter one URL per line"></textarea>
-        </div>
-
-        <!-- Row for Upload and Download buttons, horizontally aligned -->
-        <div class="row mb-2">
+        <div class="row g-3">
             <div class="col-md-6">
-                <label for="excelUpload" class="form-label">Upload Excel File</label>
+                <label for="businessName" class="form-label fw-semibold">Post Title</label>
+                <input type="text" class="form-control" id="businessName" name="company_name" placeholder="Enter business name">
+            </div>
+        </div>
+        <div class="mt-3 mb-3">
+            <label for="businessDescription" class="form-label fw-semibold">Business Description</label>
+            <textarea class="form-control" id="businessDescription" name="description" rows="3" placeholder="Enter business description"></textarea>
+        </div>
+        <div class="mb-3">
+            <label for="urlList" class="form-label fw-semibold">URLs <span class="text-muted fw-normal">(one per line)</span></label>
+            <textarea class="form-control" id="urlList" name="url_list" rows="6" placeholder="https://example.com/page&#10;https://example2.com/page"></textarea>
+        </div>
+        <div class="row g-3 align-items-end mb-4">
+            <div class="col-md-6">
+                <label for="excelUpload" class="form-label fw-semibold">Upload Excel File</label>
                 <input type="file" class="form-control" id="excelUpload" name="excel_file" accept=".xls,.xlsx,.csv">
             </div>
-            <div class="col-md-6">
-                <!-- Button for Downloading Excel Template -->
-                <label class="form-label d-block">&nbsp;</label>
-                <a href="{% static 'url_submission_template.xlsx' %}" class="btn btn-secondary w-100" download>Download Sample Template</a>
+            <div class="col-md-4">
+                <a href="{% static 'url_submission_template.xlsx' %}" class="btn btn-outline-secondary w-100" style="border-radius:8px;font-weight:600;" download>&#8595; Download Sample Template</a>
             </div>
         </div>
-    
-        <!-- Submit Button -->
-        <button type="submit" class="btn btn-primary">Submit</button>
+        <button type="submit" class="btn btn-purple">&#9654; Submit</button>
     </form>
 </div>
-
 {% endblock %}

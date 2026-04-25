@@ -1,162 +1,139 @@
 {% extends "listing/base.html" %}
-
-{% block title %}Content Generation{% endblock %}
+{% block title %}GEO Network{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <h2>Upload XLS File and Set Number of Sites</h2>
+
+<div class="page-card">
+    <h5>GEO Network — Upload & Generate</h5>
     <form id="upload-form" method="POST" enctype="multipart/form-data">
         {% csrf_token %}
-        <div class="mb-3">
-            <label for="xlsx_file" class="form-label">Upload XLS File</label>
-            <input type="file" class="form-control" id="xlsx_file" name="xlsx_file" required>
+        <div class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label for="xlsx_file" class="form-label fw-semibold">XLS File</label>
+                <input type="file" class="form-control" id="xlsx_file" name="xlsx_file" accept=".xls,.xlsx" required>
+            </div>
+            <div class="col-md-3">
+                <label for="num_sites" class="form-label fw-semibold">Number of Sites</label>
+                <input type="number" class="form-control" id="num_sites" name="num_sites" min="1" required placeholder="e.g. 10">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-purple">&#9654; Submit</button>
+            </div>
         </div>
-        <div class="mb-3">
-            <label for="num_sites" class="form-label">Number of Sites</label>
-            <input type="number" class="form-control" id="num_sites" name="num_sites" min="1" required>
-        </div>
-        <button type="submit" class="btn btn-primary">Submit</button>
     </form>
-    
+
     <div id="result-message" class="mt-3"></div>
-    <div id="progress-bar" class="progress mt-3" style="display: none;">
-        <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
-    </div>
-    <ul id="result-list" class="mt-3"></ul>
 
-    <h3 class="mt-5">Download Generated Files</h3>
-    <form id="download-form" method="GET">
-        <div class="mb-3">
-            <label for="file-dropdown" class="form-label">Select a File to Download</label>
-            <select id="file-dropdown" class="form-select">
-                <option value="" disabled selected>Select a file</option>
-            </select>
+    <div id="progress-bar-wrap" class="mt-3" style="display:none;">
+        <div class="progress" style="height:18px;border-radius:10px;background:#f0e6f8;">
+            <div class="progress-bar" id="geo-progress-bar" role="progressbar" style="width:0%;background:linear-gradient(90deg,#a453ca,#85D8CE);border-radius:10px;font-size:12px;font-weight:600;transition:width .4s ease;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
         </div>
-        <button type="button" id="download-btn" class="btn btn-secondary" disabled>Download</button>
-    </form>
+    </div>
+
+    <ul id="result-list" class="mt-3 list-unstyled" style="font-size:14px;"></ul>
 </div>
+
+<div class="page-card">
+    <h5>Download Generated Files</h5>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+        <select id="file-dropdown" class="form-select" style="max-width:320px;">
+            <option value="" disabled selected>Select a file</option>
+        </select>
+        <button type="button" id="download-btn" class="btn btn-success" style="border-radius:8px;font-weight:600;" disabled>&#8595; Download</button>
+    </div>
+</div>
+
 <script>
-    $(document).ready(function() {
-        loadFilesIntoDropdown();
-        $('#upload-form').on('submit', function(event) {
-            event.preventDefault();
-            $('#result-message').html('<p class="text-info">Processing... Please wait.</p>');
-            $('#result-list').empty();
-            $('#progress-bar').show().find('.progress-bar').css('width', '0%').attr('aria-valuenow', 0).text('0%');
-            var formData = new FormData(this);
+$(document).ready(function() {
+    loadFilesIntoDropdown();
 
-            $.ajax({
-                url: "{% url 'content_gen' %}",
-                type: 'POST',
-                data: formData,
-                contentType: false,
-                processData: false,
-                success: function(response) {
-                    // Check if response indicates that processing is in progress
-                    if (response.status === 'in_progress' && response.task_id) {
-                        checkTaskStatus(response.task_id);
-                    } else {
-                        // Handle unexpected responses
-                        $('#result-message').html('<p class="text-danger">Unexpected response from the server.</p>');
-                    }
-                },
-                error: function(response) {
-                    $('#result-message').html('<p class="text-danger">' + (response.responseJSON.message || 'Unknown error') + '</p>');
+    $('#upload-form').on('submit', function(e) {
+        e.preventDefault();
+        $('#result-message').html('<div class="alert alert-info alert-page">Processing... please wait.</div>');
+        $('#result-list').empty();
+        $('#progress-bar-wrap').show().find('.progress-bar').css('width','0%').attr('aria-valuenow',0).text('0%');
+
+        $.ajax({
+            url: "{% url 'content_gen' %}",
+            type: 'POST',
+            data: new FormData(this),
+            contentType: false,
+            processData: false,
+            success: function(response) {
+                if (response.status === 'in_progress' && response.task_id) {
+                    checkTaskStatus(response.task_id);
+                } else {
+                    $('#result-message').html('<div class="alert alert-danger alert-page">Unexpected response from server.</div>');
                 }
-            });
-        });
-
-        function checkTaskStatus(taskId) {
-            $.ajax({
-                url: '/api/content-gen-status/' + taskId + '/',
-                type: 'GET',
-                success: function(response) {
-                    if (response.status === 'in_progress' || response.status === 'PENDING') {
-                        setTimeout(function() {
-                            checkTaskStatus(taskId);
-                        }, 2000);
-                    } else if (response.status === 'single_post_done') {
-                        updateProgress(response.meta);
-                        setTimeout(function() {
-                            checkTaskStatus(taskId);
-                        }, 2000);
-                    } else if (response.status === 'SUCCESS') {
-                        // Ensure you pass the correct data
-                        if (Array.isArray(response.result)) {
-                            displayFinalResults(response.result);
-                        } else {
-                            $('#result-message').html('<p class="text-danger">Expected an array of URLs but got: ' + typeof response.result + '</p>');
-                        }
-                        loadFilesIntoDropdown();
-                    } else if (response.status === 'FAILURE') {
-                        $('#result-message').html('<p class="text-danger">Task failed: ' + response.message + '</p>');
-                    } else {
-                        $('#result-message').html('<p class="text-warning">Unexpected task state: ' + response.status + '</p>');
-                    }
-                },
-                error: function() {
-                    $('#result-message').html('<p class="text-danger">Error checking task status.</p>');
-                }
-            });
-        }
-
-        function updateProgress(meta) {
-            var percentage = Math.round((meta.current / meta.total) * 100);
-            $('#progress-bar .progress-bar').css('width', percentage + '%').attr('aria-valuenow', percentage).text(percentage + '%');
-            
-            // Update the last posted URL if it's not already displayed
-            if (meta.last_posted_url && !$('#result-list').find('a[href="' + meta.last_posted_url + '"]').length) {
-                $('#result-list').append('<li>Posted URL: <a href="' + meta.last_posted_url + '" target="_blank">' + meta.last_posted_url + '</a></li>');
-            }
-        }
-
-        function displayFinalResults(results) {
-            $('#result-message').html('<p class="text-success">Task completed successfully.</p>');
-            $('#progress-bar').hide();
-            $('#result-list').empty(); // Clear previous results
-            $('#result-list').append('<li><strong>All URLs posted:</strong></li>');
-        
-            // Ensure results is treated as an array
-            if (Array.isArray(results)) {
-                results.forEach(function(url) {
-                    $('#result-list').append('<li><a href="' + url + '" target="_blank">' + url + '</a></li>');
-                });
-            } else {
-                $('#result-list').append('<li>No URLs posted.</li>');
-            }
-        
-            $('#result-list').append('<li><strong>Total URLs posted: ' + results.length + '</strong></li>');
-        }
-        
-        function loadFilesIntoDropdown() {
-            $.ajax({
-                url: "{% url 'list_files_geo' %}",
-                type: 'GET',
-                success: function(response) {
-                    if (response.status === 'success') {
-                        const fileDropdown = $('#file-dropdown');
-                        fileDropdown.empty().append('<option value="" disabled selected>Select a file</option>');
-                        response.files.forEach(function(file) {
-                            fileDropdown.append('<option value="' + file + '">' + file + '</option>');
-                        });
-                        $('#download-btn').prop('disabled', false);
-                    } else {
-                        $('#result-message').html('<p class="text-danger">No files available for download.</p>');
-                    }
-                },
-                error: function() {
-                    $('#result-message').html('<p class="text-danger">Error loading files.</p>');
-                }
-            });
-        }
-
-        $('#download-btn').on('click', function() {
-            const selectedFile = $('#file-dropdown').val();
-            if (selectedFile) {
-                window.location.href = '/download-file-geo/' + selectedFile + '/';
+            },
+            error: function(response) {
+                $('#result-message').html('<div class="alert alert-danger alert-page">' + (response.responseJSON?.message || 'Unknown error') + '</div>');
             }
         });
-    });    
+    });
+
+    function checkTaskStatus(taskId) {
+        $.ajax({
+            url: '/api/content-gen-status/' + taskId + '/',
+            type: 'GET',
+            success: function(response) {
+                if (response.status === 'in_progress' || response.status === 'PENDING') {
+                    setTimeout(() => checkTaskStatus(taskId), 2000);
+                } else if (response.status === 'single_post_done') {
+                    updateProgress(response.meta);
+                    setTimeout(() => checkTaskStatus(taskId), 2000);
+                } else if (response.status === 'SUCCESS') {
+                    if (Array.isArray(response.result)) displayFinalResults(response.result);
+                    else $('#result-message').html('<div class="alert alert-danger alert-page">Unexpected result format.</div>');
+                    loadFilesIntoDropdown();
+                } else if (response.status === 'FAILURE') {
+                    $('#result-message').html('<div class="alert alert-danger alert-page">Task failed: ' + response.message + '</div>');
+                }
+            },
+            error: function() {
+                $('#result-message').html('<div class="alert alert-danger alert-page">Error checking task status.</div>');
+            }
+        });
+    }
+
+    function updateProgress(meta) {
+        const pct = Math.round((meta.current / meta.total) * 100);
+        $('#geo-progress-bar').css('width', pct + '%').attr('aria-valuenow', pct).text(pct + '%');
+        if (meta.last_posted_url && !$('#result-list').find('a[href="' + meta.last_posted_url + '"]').length) {
+            $('#result-list').append(`<li>&#10003; <a href="${meta.last_posted_url}" target="_blank">${meta.last_posted_url}</a></li>`);
+        }
+    }
+
+    function displayFinalResults(results) {
+        $('#result-message').html('<div class="alert alert-success alert-page">&#10003; Task completed — ' + results.length + ' URLs posted.</div>');
+        $('#progress-bar-wrap').hide();
+        $('#result-list').empty();
+        if (Array.isArray(results)) {
+            results.forEach(url => {
+                $('#result-list').append(`<li>&#10003; <a href="${url}" target="_blank">${url}</a></li>`);
+            });
+        }
+    }
+
+    function loadFilesIntoDropdown() {
+        $.ajax({
+            url: "{% url 'list_files_geo' %}",
+            type: 'GET',
+            success: function(response) {
+                if (response.status === 'success') {
+                    const dd = $('#file-dropdown');
+                    dd.empty().append('<option value="" disabled selected>Select a file</option>');
+                    response.files.forEach(f => dd.append(`<option value="${f}">${f}</option>`));
+                    $('#download-btn').prop('disabled', false);
+                }
+            }
+        });
+    }
+
+    $('#download-btn').on('click', function() {
+        const sel = $('#file-dropdown').val();
+        if (sel) window.location.href = '/download-file-geo/' + sel + '/';
+    });
+});
 </script>
-
 {% endblock %}

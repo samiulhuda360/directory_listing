@@ -1,109 +1,83 @@
 {% extends "listing/base.html" %}
-
-{% block title %}Deleting Links{% endblock %}
+{% block title %}Delete Posts{% endblock %}
 
 {% block content %}
 
 {% if messages %}
-<div class="message-container">
+<div class="mb-3">
     {% for message in messages %}
-    <div class="{{ message.tags }}">
-        {{ message }}
-    </div>
+        <div class="alert alert-page {{ message.tags }}">{{ message }}</div>
     {% endfor %}
 </div>
 {% endif %}
 
-<div class="container mt-5">
-    <h2>Upload Excel or Paste Links for Delete</h2>
+<div class="page-card">
+    <h5>Delete Posts</h5>
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        <!-- File Upload -->
-        <div class="mb-3">
-            <label for="excelFileUpload" class="form-label">Upload Excel File</label>
-            <input class="form-control" type="file" id="excelFileUpload" name="excel_file" accept=".xlsx, .xls">
+        <div class="row g-3">
+            <div class="col-md-5">
+                <label for="excelFileUpload" class="form-label fw-semibold">Upload Excel File</label>
+                <input class="form-control" type="file" id="excelFileUpload" name="excel_file" accept=".xlsx,.xls">
+            </div>
         </div>
-
-        <!-- Placeholder for Links -->
-        <div class="mb-3">
-            <label for="linkPasteArea" class="form-label">Or Paste Links Here</label>
-            <textarea class="form-control" id="linkPasteArea" name="links" rows="10" placeholder="Paste your links here..."></textarea>
+        <div class="mt-3 mb-3">
+            <label for="linkPasteArea" class="form-label fw-semibold">Or Paste Links Here</label>
+            <textarea class="form-control" id="linkPasteArea" name="links" rows="8" placeholder="Paste one URL per line..."></textarea>
         </div>
-
-        <!-- Submit Button -->
-        <button type="submit" class="btn btn-primary">Submit</button>
+        <button type="submit" class="btn btn-danger" style="border-radius:8px;font-weight:600;padding:9px 24px;">&#128465; Submit for Deletion</button>
     </form>
 </div>
 
-
-<div id="taskStatusContainer">
-    <h2>Deletion Task Status</h2>
-    <table id="taskTable" class="task-table">
-        <thead>
-            <tr>
-                <th>#</th> <!-- Table header for index numbers -->
-                <th>URL</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            <!-- Task statuses will be appended here dynamically -->
-        </tbody>
-    </table>
+<div class="page-card">
+    <h5>Deletion Task Status</h5>
+    <div style="border-radius:10px;overflow:hidden;">
+        <table id="taskTable" class="table table-bordered mb-0 page-table">
+            <thead>
+                <tr>
+                    <th style="width:60px">#</th>
+                    <th>URL</th>
+                    <th style="width:130px">Status</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
 </div>
 
-
 <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        let intervalId = setInterval(updateTaskStatuses, 8000); // Set up the interval to update task statuses
-    
-        function updateTaskStatuses() {
-            fetch('/check_delete_status/')
-                .then(response => response.json())
-                .then(data => {
-                    const taskTableBody = document.getElementById('taskTable').getElementsByTagName('tbody')[0];
-                    taskTableBody.innerHTML = ''; // Clear the current list
-    
-                    let allTasksCompleted = true; // Assume all tasks are completed
-    
-                    data.tasks.forEach((task, index) => {
-                        const row = taskTableBody.insertRow();
-                        const cellIndex = row.insertCell(0);
-                        const cellUrl = row.insertCell(1);
-                        const cellStatus = row.insertCell(2);
-    
-                        cellIndex.textContent = index + 1; // Set index number
-                        cellUrl.textContent = task.url; // Set URL
-                        cellStatus.textContent = task.status; // Set status
-    
-                        // Add class based on status for styling
-                        row.classList.add(task.status.toLowerCase());
-                        // Debugging line to check each task status
-                        console.log(`Task ${index + 1}: ${task.url} - ${task.status}`);
-    
-                        // If any task is not ready, then not all tasks are completed
-                        if (task.status !== 'SUCCESS' && task.status !== 'FAILED') {
-                            allTasksCompleted = false;
-                        }
-                    });
-    
-                    // If all tasks are completed, clear the interval
-                    if (allTasksCompleted) {
-                        clearInterval(intervalId);
-                        console.log("All tasks completed. Stopping the status check.");
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching task statuses:', error);
-                    clearInterval(intervalId); // Clear the interval in case of an error
-                });
-        }
-    
-        // Initial call to check task statuses when the page loads
-        updateTaskStatuses();
-    });
-    
-</script> 
-  
+document.addEventListener("DOMContentLoaded", function() {
+    let intervalId = setInterval(updateTaskStatuses, 8000);
 
+    function updateTaskStatuses() {
+        fetch('/check_delete_status/')
+            .then(r => r.json())
+            .then(data => {
+                const tbody = document.getElementById('taskTable').getElementsByTagName('tbody')[0];
+                tbody.innerHTML = '';
+                let allDone = true;
+
+                data.tasks.forEach((task, index) => {
+                    const row = tbody.insertRow();
+                    const isSuccess = task.status === 'SUCCESS';
+                    const isFailed = task.status === 'FAILED';
+                    row.insertCell(0).textContent = index + 1;
+                    row.insertCell(1).textContent = task.url;
+                    const sc = row.insertCell(2);
+                    const badge = document.createElement('span');
+                    badge.className = `badge bg-${isSuccess ? 'success' : isFailed ? 'danger' : 'secondary'}`;
+                    badge.style.cssText = 'font-size:13px;padding:6px 12px;';
+                    badge.textContent = task.status;
+                    sc.appendChild(badge);
+                    if (!isSuccess && !isFailed) allDone = false;
+                });
+
+                if (allDone && data.tasks.length > 0) clearInterval(intervalId);
+            })
+            .catch(() => clearInterval(intervalId));
+    }
+
+    updateTaskStatuses();
+});
+</script>
 {% endblock %}

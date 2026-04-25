@@ -1,95 +1,68 @@
 {% extends "listing/base.html" %}
-
-{% block title %}Link Building Automation Dashboard - Site Data {% endblock %}
+{% block title %}Site Data{% endblock %}
 
 {% block content %}
 
-
-<form id="site_data_Form" enctype="multipart/form-data" method="POST" class="mb-4">
-    {% csrf_token %}
-    <div class="row g-3">
-        <div class="col-md-4">
-            <label for="site_excel_file" class="form-label">Upload your site data</label>
-            <input type="file" class="form-control" name="site_excel_file" id="site_excel_file">
-        </div>
-    </div>
-    <div class="row mt-3">
-        <div class="col">
-            <button type="submit" id="startProcess" class="btn btn-primary" style="background-color: #a453ca;">Upload Data</button>
-        </div>
-    </div>
-</form>
-
-<button id="viewData" class="btn btn-info">View All Site Records</button>
-
-<!-- Div to display data table -->
-<div id="dataDisplay"></div>
-
 {% if messages %}
-    <div class="messages">
-        {% for message in messages %}
-            <!-- Correct placement of the class attribute -->
-            <h3 class="{% if message.tags %}{{ message.tags }}{% endif %}">{{ message }}</h3>
-        {% endfor %}
-    </div>
+<div class="mb-3">
+    {% for message in messages %}
+        <div class="alert alert-{% if message.tags %}{{ message.tags }}{% else %}info{% endif %} alert-page">{{ message }}</div>
+    {% endfor %}
+</div>
 {% endif %}
 
+<div class="page-card">
+    <h5>Upload Site Data</h5>
+    <form id="site_data_Form" enctype="multipart/form-data" method="POST">
+        {% csrf_token %}
+        <div class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label for="site_excel_file" class="form-label fw-semibold">Excel File</label>
+                <input type="file" class="form-control" name="site_excel_file" id="site_excel_file" accept=".xlsx,.xls">
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-purple w-100">&#8679; Upload Data</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="page-card">
+    <h5>Site Records</h5>
+    <button id="viewData" class="btn btn-purple mb-3">&#128065; View All Site Records</button>
+    <div id="dataDisplay"></div>
+</div>
 
 <style>
-    #dataDisplay table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 20px;
-    }
-
-    #dataDisplay th, #dataDisplay td {
-        border: 1px solid #ddd;
-        padding: 8px;
-    }
-
-    #dataDisplay th {
-        background-color: #4CAF50;
-        color: white;
-        text-align: left;
-    }
-
-    #dataDisplay tr:nth-child(even) {
-        background-color: #f2f2f2;
-    }
-
-    #dataDisplay tr:hover {
-        background-color: #ddd;
-    }
+#dataDisplay table { width:100%; border-collapse:collapse; }
+#dataDisplay th, #dataDisplay td { border:1px solid #e0d4f0; padding:10px 12px; font-size:14px; }
+#dataDisplay th { background:linear-gradient(135deg,#a453ca,#85D8CE); color:#fff; font-weight:600; }
+#dataDisplay tr:nth-child(even) { background:#f9f4fd; }
+#dataDisplay tr:hover { background:#f0e6f8; }
 </style>
 
 <script>
-    document.getElementById('site_data_Form').addEventListener('submit', function(event) {
-        var excelFile = document.getElementById('site_excel_file').value;
-        if (!excelFile) {
-            alert('Please select an Excel file to upload.');
-            event.preventDefault(); // Prevent the form submission
-        }
-    });
+document.getElementById('site_data_Form').addEventListener('submit', function(e) {
+    if (!document.getElementById('site_excel_file').value) {
+        alert('Please select an Excel file to upload.');
+        e.preventDefault();
+    }
+});
 
-    document.getElementById('viewData').addEventListener('click', function() {
-        fetch('/api-config-data/')
-            .then(response => response.json())
-            .then(data => {
-                let table = '<table>';
-                table += '<tr><th>SL No.</th><th>Website</th><th>Template No</th></tr>';
-                let slNo = 1; // Initialize serial number counter
-                data.forEach(item => {
-                    table += `<tr><td>${slNo++}</td><td>${item.website}</td><td>${item.template_no}</td></tr>`;
-                });
-                table += '</table>';
-                document.getElementById('dataDisplay').innerHTML = table;
+document.getElementById('viewData').addEventListener('click', function() {
+    this.textContent = 'Loading...';
+    fetch('/api-config-data/')
+        .then(r => r.json())
+        .then(data => {
+            let table = '<table><tr><th>SL No.</th><th>Website</th><th>Template No</th></tr>';
+            data.forEach((item, i) => {
+                table += `<tr><td>${i+1}</td><td>${item.website}</td><td>${item.template_no}</td></tr>`;
             });
-    });
+            table += '</table>';
+            document.getElementById('dataDisplay').innerHTML = table;
+            document.getElementById('viewData').textContent = '↺ Refresh Records';
+        })
+        .catch(() => { document.getElementById('viewData').textContent = '↺ Refresh Records'; });
+});
 </script>
-
-
-{% endblock %} 
-
-
-
-
+{% endblock %}

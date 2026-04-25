@@ -10,6 +10,39 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 
 <style>
+    /* ── Shared page styles ── */
+    .page-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        padding: 28px 32px;
+        margin-bottom: 24px;
+    }
+    .page-card h5, .page-card h4 {
+        font-weight: 700;
+        color: #444;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #a453ca22;
+        padding-bottom: 10px;
+    }
+    .btn-purple {
+        background: linear-gradient(135deg, #a453ca, #7b2fa8);
+        border: none; color: #fff;
+        padding: 9px 24px; border-radius: 8px;
+        font-weight: 600; font-size: 14px;
+        transition: opacity 0.2s;
+    }
+    .btn-purple:hover { opacity: 0.88; color: #fff; }
+    .btn-purple:disabled { opacity: 0.5; cursor: not-allowed; }
+    .page-table thead th {
+        background: linear-gradient(135deg, #a453ca, #85D8CE);
+        color: #fff; border: none;
+    }
+    .page-table { border-radius: 10px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+    .page-table tbody tr:hover { background: #f9f4fd; }
+    .alert-page { border-radius: 10px; font-weight: 500; }
+    /* ── End shared styles ── */
+
     .navbar .navbar-nav .nav-link {
     color: #ffffff; /* White color for better contrast */
     font-weight: bold; /* Bold font for better visibility */

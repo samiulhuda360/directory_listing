@@ -1,39 +1,29 @@
 {% extends "listing/base.html" %}
-
 {% block title %}Update Post{% endblock %}
 
 {% block content %}
 
 {% if messages %}
-<div class="message-container">
+<div class="mb-3">
     {% for message in messages %}
-    <div class="{% if message.tags == 'success' %}alert alert-success{% else %}alert alert-danger{% endif %}">
-        {{ message.message }}
-    </div>
+        <div class="alert alert-{% if message.tags == 'success' %}success{% else %}danger{% endif %} alert-page">{{ message.message }}</div>
     {% endfor %}
 </div>
 {% endif %}
 
-<div class="container mt-5">
-    <h2>Upload Excel or Add Post Details</h2>
+<div class="page-card">
+    <h5>Update Post</h5>
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        
-        <!-- Placeholder for URLs -->
         <div class="mb-3">
-            <label for="postUrls" class="form-label">Post URLs</label>
-            <textarea class="form-control" id="postUrls" name="post_urls" rows="5" placeholder="Enter the post URLs here, one per line..."></textarea>
+            <label for="postUrls" class="form-label fw-semibold">Post URLs</label>
+            <textarea class="form-control" id="postUrls" name="post_urls" rows="5" placeholder="Enter post URLs here, one per line..."></textarea>
         </div>
-
-        <!-- File Upload -->
-        <div class="mb-3">
-            <label for="excelFileUpload" class="form-label">Upload Excel File for Data</label>
-            <input class="form-control" type="file" id="excelFileUpload" name="excel_file" accept=".xlsx, .xls" required>
+        <div class="mb-4">
+            <label for="excelFileUpload" class="form-label fw-semibold">Upload Excel File</label>
+            <input class="form-control" type="file" id="excelFileUpload" name="excel_file" accept=".xlsx,.xls" required>
         </div>
-
-        <!-- Submit Button -->
-        <button type="submit" class="btn btn-primary">Submit</button>
+        <button type="submit" class="btn btn-purple">&#8679; Submit</button>
     </form>
 </div>
-
 {% endblock %}

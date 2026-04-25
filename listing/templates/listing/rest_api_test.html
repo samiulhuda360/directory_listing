@@ -1,88 +1,76 @@
 {% extends "listing/base.html" %}
-
-{% block title %}Directory Listing Automation{% endblock %}
+{% block title %}API Test{% endblock %}
 
 {% block content %}
-<div class="container my-4">
-    <h2 class="mb-4">WordPress Rest API Testing</h2>
-    <form method="post" action="{% url 'rest_api_test' %}" class="row g-3 align-items-center">
-        {% csrf_token %}
-        <div class="col-auto">
-            <label for="site-dropdown" class="col-form-label">Select a site from the dropdown:</label>
-        </div>
-        <div class="col-auto">
-            <select name="api_url" id="site-dropdown" class="form-select">
-                {% for config in api_configs %}
-                    <option value="{{ config.website }}">{{ config.website }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-auto">
-            <button type="submit" name="test_single" class="btn btn-primary">Test Site</button>
-        </div>
-        <div class="col-auto">
-            <button type="submit" name="test_all" class="btn btn-info">Test All Sites</button>
-        </div>
-    </form>
-    <div>
-        <a href="{% url 'download_failed_tests' %}" class="btn btn-success">Download Failed Sites List</a>
-    </div>
-</div>
 
-<!-- Table for displaying test results -->
-<table style="width:100%; border-collapse: collapse;">
-    <thead>
-      <tr>
-        <th style="border: 1px solid #dddddd; text-align: left; padding: 8px;">SL No.</th>
-        <th style="border: 1px solid #dddddd; text-align: left; padding: 8px;">Site Name</th>
-        <th style="border: 1px solid #dddddd; text-align: left; padding: 8px;">Status</th>
-      </tr>
-    </thead>
-    <tbody id="test-status">
-      <!-- Content will be populated by JavaScript -->
-    </tbody>
-  </table>
-
-  <script>
-    function updateTestStatus() {
-        $.ajax({
-            url: '{% url "test_status_update" %}',
-            success: function(data) {
-                var tbody = $('#test-status');
-                tbody.empty(); // Clear existing rows
-                var slNo = 1;  // Initialize serial number
-                $.each(data, function(url, status) {
-                    // Determine row color based on status
-                    var color = status === 'Success' ? '#A7FF3B' : '#FF7E83';
-                    var row = '<tr style="background-color:' + color + ';">' +
-                              '<td style="border: 1px solid #dddddd; text-align: left; padding: 8px;">' + slNo++ + '</td>' +
-                              '<td style="border: 1px solid #dddddd; text-align: left; padding: 8px;">' + url + '</td>' +
-                              '<td style="border: 1px solid #dddddd; text-align: left; padding: 8px;">' + status + '</td>' +
-                              '</tr>';
-                    tbody.append(row); // Add the row to the table
-                });
-
-                 // Check if all tasks are completed
-                 var allTasksCompleted = data && Object.values(data).every(function(value) {
-                    return value === 'Success';
-                });
-            }
-        });
-    }
-    var statusInterval = setInterval(updateTestStatus, 3000); // Poll every 3 seconds
-</script>
-
-
-
-    
-
-<!-- Display the response or error messages -->
 {% if messages %}
+<div class="mb-3">
     {% for message in messages %}
-        <div class="alert {{ message.tags }}">
-            {{ message }}
-        </div>
+        <div class="alert alert-{{ message.tags }} alert-page">{{ message }}</div>
     {% endfor %}
+</div>
 {% endif %}
 
+<div class="page-card">
+    <h5>WordPress REST API Testing</h5>
+    <form method="post" action="{% url 'rest_api_test' %}">
+        {% csrf_token %}
+        <div class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label for="site-dropdown" class="form-label fw-semibold">Select Site</label>
+                <select name="api_url" id="site-dropdown" class="form-select">
+                    {% for config in api_configs %}
+                        <option value="{{ config.website }}">{{ config.website }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" name="test_single" class="btn btn-purple">&#9654; Test Site</button>
+            </div>
+            <div class="col-auto">
+                <button type="submit" name="test_all" class="btn btn-outline-secondary" style="border-radius:8px;font-weight:600;padding:9px 22px;">&#9654;&#9654; Test All Sites</button>
+            </div>
+            <div class="col-auto ms-auto">
+                <a href="{% url 'download_failed_tests' %}" class="btn btn-outline-success" style="border-radius:8px;font-weight:600;padding:9px 22px;">&#8595; Download Failed List</a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+    <table class="table table-bordered mb-0 page-table">
+        <thead>
+            <tr>
+                <th style="width:70px">#</th>
+                <th>Site Name</th>
+                <th style="width:140px">Status</th>
+            </tr>
+        </thead>
+        <tbody id="test-status"></tbody>
+    </table>
+</div>
+
+<script>
+function updateTestStatus() {
+    $.ajax({
+        url: '{% url "test_status_update" %}',
+        success: function(data) {
+            var tbody = $('#test-status');
+            tbody.empty();
+            var slNo = 1;
+            $.each(data, function(url, status) {
+                var isSuccess = status === 'Success';
+                var badgeClass = isSuccess ? 'success' : 'danger';
+                var row = `<tr>
+                    <td>${slNo++}</td>
+                    <td>${url}</td>
+                    <td><span class="badge bg-${badgeClass}" style="font-size:13px;padding:6px 12px;">${status}</span></td>
+                </tr>`;
+                tbody.append(row);
+            });
+        }
+    });
+}
+var statusInterval = setInterval(updateTestStatus, 3000);
+</script>
 {% endblock %}
