@@ -120,8 +120,10 @@
                 }
                 
                 
+                const csrftokenPost = getCookie('csrftoken');
                 fetch('{% url "home" %}', {
                     method: 'POST',
+                    headers: { 'X-CSRFToken': csrftokenPost },
                     body: formData
                 })
                 .then(response => {
