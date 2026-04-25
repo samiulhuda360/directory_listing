@@ -128,7 +128,7 @@
             <button type="button" id="startProcess" class="btn btn-post">
                 &#9654; Start Posting
             </button>
-            <button type="button" id="stopProcess" class="btn btn-outline-danger" style="border-radius:8px; font-weight:600; padding:10px 24px;">
+            <button type="button" id="stopProcess" class="btn btn-outline-danger" style="border-radius:8px; font-weight:600; padding:10px 24px; display:none;">
                 &#9646;&#9646; Stop Process
             </button>
             <a href="{% url 'download_excel' %}" class="btn btn-outline-success ms-auto" style="border-radius:8px; font-weight:600; padding:10px 22px;">
@@ -225,6 +225,7 @@
             resetStats();
             showProgress('Sending request...');
             document.getElementById('startProcess').disabled = true;
+            document.getElementById('stopProcess').style.display = 'inline-block';
 
             const form = document.getElementById('uploadForm');
             const formData = new FormData(form);
@@ -292,6 +293,7 @@
         document.getElementById('progressTitle').textContent = 'All tasks completed!';
         setStatusMessage(`Done — ${doneTasks} posted, ${failTasks} failed, ${skipTasks} skipped.`);
         document.getElementById('startProcess').disabled = false;
+        document.getElementById('stopProcess').style.display = 'none';
         updateProgressBar();
     }
 
