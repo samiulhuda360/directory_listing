@@ -28,7 +28,7 @@
                 <button type="submit" name="test_single" class="btn btn-purple">&#9654; Test Site</button>
             </div>
             <div class="col-auto">
-                <button type="submit" name="test_all" class="btn btn-outline-secondary" style="border-radius:8px;font-weight:600;padding:9px 22px;">&#9654;&#9654; Test All Sites</button>
+                <button type="submit" name="test_all" id="testAllBtn" class="btn btn-outline-secondary" style="border-radius:8px;font-weight:600;padding:9px 22px;">&#9654;&#9654; Test All Sites</button>
             </div>
             <div class="col-auto ms-auto">
                 <a href="{% url 'download_failed_tests' %}" class="btn btn-outline-success" style="border-radius:8px;font-weight:600;padding:9px 22px;">&#8595; Download Failed List</a>
@@ -50,7 +50,15 @@
     </table>
 </div>
 
+<div id="testingBanner" style="display:none;" class="alert alert-info alert-page mt-3">
+    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+    Testing sites... results will appear below as they complete.
+</div>
+
 <script>
+var totalSites = {{ api_configs|length }};
+var isTestingAll = {{ request.GET.testing|default:"0" }};
+
 function updateTestStatus() {
     $.ajax({
         url: '{% url "test_status_update" %}',
@@ -58,6 +66,7 @@ function updateTestStatus() {
             var tbody = $('#test-status');
             tbody.empty();
             var slNo = 1;
+            var count = 0;
             $.each(data, function(url, status) {
                 var isSuccess = status === 'Success';
                 var badgeClass = isSuccess ? 'success' : 'danger';
@@ -67,10 +76,30 @@ function updateTestStatus() {
                     <td><span class="badge bg-${badgeClass}" style="font-size:13px;padding:6px 12px;">${status}</span></td>
                 </tr>`;
                 tbody.append(row);
+                count++;
             });
+            if (count > 0) {
+                $('#testingBanner').show();
+                if (count >= totalSites) {
+                    $('#testingBanner').html('&#10003; Testing complete — ' + count + ' sites checked.').removeClass('alert-info').addClass('alert-success');
+                    clearInterval(statusInterval);
+                }
+            }
         }
     });
 }
+
+// Show banner immediately if results are already loading (after redirect)
+{% if request.method == 'GET' %}
+updateTestStatus();
+{% endif %}
+
 var statusInterval = setInterval(updateTestStatus, 3000);
+
+$('form').on('submit', function(e) {
+    if ($(e.originalEvent.submitter).attr('name') === 'test_all') {
+        $('#testingBanner').show().html('<span class="spinner-border spinner-border-sm me-2" role="status"></span>Testing all ' + totalSites + ' sites... results will appear below as they complete.').removeClass('alert-success').addClass('alert-info');
+    }
+});
 </script>
 {% endblock %}

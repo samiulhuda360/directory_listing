@@ -478,21 +478,13 @@ def get_api_config_data(request):
 def rest_api_test(request):
     context = {'api_configs': APIConfig.objects.all()}
 
-    # Clear previous results when the page is freshly loaded (GET request)
-    if request.method == 'GET':
-        TestResult.objects.all().delete()
-        request.session['test_status'] = {}  # Also clear the session info if you are using it
-
     if request.method == 'POST':
         # If the 'Test All' button is pressed
         if 'test_all' in request.POST:
-            task_ids = []
+            # Clear old results before starting a fresh test run
+            TestResult.objects.all().delete()
             for config in context['api_configs']:
                 perform_test_task.delay(config.id)
-
-            # Store the task_ids in the session for checking completion
-            request.session['test_all_task_ids'] = [perform_test_task.delay(config.id).id for config in context['api_configs']]
-            
             # Redirect to avoid re-posting on refresh
             return redirect('rest_api_test')
 
@@ -501,6 +493,7 @@ def rest_api_test(request):
             selected_url = request.POST.get('api_url')
             try:
                 selected_config = APIConfig.objects.get(website=selected_url)
+                TestResult.objects.filter(config=selected_config).delete()
                 perform_test_task.delay(selected_config.id)
             except APIConfig.DoesNotExist:
                 messages.error(request, "Selected site configuration does not exist.")
