@@ -457,7 +457,7 @@
     }
 
     function addLinkToTable(linkData, index) {
-        if (!linkData || linkData.url === 'N/A' || typeof index !== 'number') return;
+        if (!linkData || !linkData.url || !linkData.url.startsWith('http') || typeof index !== 'number') return;
         const tableBody = document.querySelector('#linksTable tbody');
         const row = tableBody.insertRow();
         row.insertCell(0).innerHTML = index + 1;
@@ -476,8 +476,13 @@
                 if (Array.isArray(data.links)) {
                     const tableBody = document.querySelector('#linksTable tbody');
                     tableBody.innerHTML = '';
-                    data.links.forEach((linkData, index) => addLinkToTable(linkData, index));
-                    if (data.post_url) displaySummaryURL(data.post_url);
+                    let row = 0;
+                    data.links.forEach(linkData => {
+                        if (linkData.url && linkData.url.startsWith('http')) {
+                            addLinkToTable(linkData, row++);
+                        }
+                    });
+                    if (data.post_url && data.post_url.startsWith('http')) displaySummaryURL(data.post_url);
                 }
             })
             .catch(e => console.error('Error:', e));
