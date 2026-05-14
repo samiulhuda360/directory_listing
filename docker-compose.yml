@@ -29,7 +29,7 @@ services:
 
   celery:
     build: .
-    command: celery -A directory_listing worker --loglevel=info
+    command: celery -A directory_listing worker --loglevel=info --concurrency=4
     volumes:
       - .:/app
     depends_on:
