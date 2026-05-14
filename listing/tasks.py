@@ -604,19 +604,15 @@ def perform_test_task(self, config_id):
         from .models import APIConfig, TestResult  # Import here to avoid circular import
         config = APIConfig.objects.get(id=config_id)
         
-        # Mocking the test function behavior
         response = test_post_to_wordpress(config.website, config.user, config.password, "Test Content")
-        if response.status_code in [201]:
-            response_data = response.json()
-            post_id = response_data.get('id')
+        if response is None:
+            result = 'Failed: timeout or connection error'
+        elif response.status_code == 201:
+            post_id = response.json().get('id')
             delete_response = delete_from_wordpress(config.website, config.user, config.password, post_id)
-            
-            if delete_response is not None and delete_response.status_code == 200:
-                result = 'Success'
-            else:
-                result = 'Failed to delete post'
+            result = 'Success' if (delete_response is not None and delete_response.status_code == 200) else 'Failed to delete test post'
         else:
-            result = f'Failed with status code: {response.status_code}'
+            result = f'Failed: HTTP {response.status_code}'
         
         # Store the result somewhere that the AJAX can retrieve
         TestResult.objects.create(config=config, status=result)
