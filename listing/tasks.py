@@ -580,11 +580,10 @@ def test_post_to_wordpress(site_url, username, app_password, content):
     }
 
     try:
-        response = requests.post(url_json, headers=headers, json=data)
+        response = requests.post(url_json, headers=headers, json=data, timeout=10)
         return response
-    
-    except requests.exceptions.ConnectionError:
-        return None  # Or return an appropriate response indicating a connection error
+    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        return None
 
 def delete_from_wordpress(site_url, username, app_password, post_id):
     url_json = "https://" + site_url + f"/wp-json/wp/v2/posts/{post_id}"
@@ -593,10 +592,10 @@ def delete_from_wordpress(site_url, username, app_password, post_id):
     headers = {'Authorization': 'Basic ' + token.decode('utf-8')}
 
     try:
-        response = requests.delete(url_json, headers=headers)
+        response = requests.delete(url_json, headers=headers, timeout=10)
         return response
-    except requests.exceptions.ConnectionError:
-        return None  # Or return an appropriate response indicating a connection error
+    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        return None
     
 
 @shared_task(bind=True) 
