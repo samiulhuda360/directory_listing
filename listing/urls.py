@@ -21,7 +21,8 @@ urlpatterns = [
     path('delete-all-files/', views.delete_all_files_geo, name='delete_all_files_geo'), 
     path('delete-links/', views.delete_posts, name='delete_posts'),
     path('check_delete_status/', views.check_delete_task_status, name='check_delete_status'),
-    path('test-status-update/', views.test_status_update, name='test_status_update'),  # URL pattern for AJAX request
+    path('test-status-update/', views.test_status_update, name='test_status_update'),
+    path('clear-test-results/', views.clear_test_results, name='clear_test_results'),
     path('logout/', auth_views.LogoutView.as_view(next_page='home'), name='logout'),
     path('get-task-result/<str:task_id>/', views.get_task_result, name='get_task_result'),
     path('get-task-result-unique/<str:task_id>/', views.get_task_result_unique, name='get_task_result_unique'),

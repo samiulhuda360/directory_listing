@@ -30,7 +30,8 @@
             <div class="col-auto">
                 <button type="submit" name="test_all" id="testAllBtn" class="btn btn-outline-secondary" style="border-radius:8px;font-weight:600;padding:9px 22px;">&#9654;&#9654; Test All Sites</button>
             </div>
-            <div class="col-auto ms-auto">
+            <div class="col-auto ms-auto d-flex gap-2">
+                <button type="button" id="stopTestBtn" class="btn btn-outline-danger" style="border-radius:8px;font-weight:600;padding:9px 22px;">&#9646;&#9646; Stop &amp; Clear</button>
                 <a href="{% url 'download_failed_tests' %}" class="btn btn-outline-success" style="border-radius:8px;font-weight:600;padding:9px 22px;">&#8595; Download Failed List</a>
             </div>
         </div>
@@ -100,6 +101,20 @@ $('form').on('submit', function(e) {
     if ($(e.originalEvent.submitter).attr('name') === 'test_all') {
         $('#testingBanner').show().html('<span class="spinner-border spinner-border-sm me-2" role="status"></span>Testing all ' + totalSites + ' sites... results will appear below as they complete.').removeClass('alert-success').addClass('alert-info');
     }
+});
+
+$('#stopTestBtn').on('click', function() {
+    if (!confirm('Stop the running test and clear all results?')) return;
+    $.ajax({
+        url: '{% url "clear_test_results" %}',
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+        success: function() {
+            clearInterval(statusInterval);
+            $('#test-status').empty();
+            $('#testingBanner').hide();
+        }
+    });
 });
 </script>
 {% endblock %}

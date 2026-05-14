@@ -509,6 +509,18 @@ def rest_api_test(request):
     return render(request, 'listing/rest_api_test.html', context)
 
 
+@require_POST
+def clear_test_results(request):
+    from celery.app.control import Inspect
+    from directory_listing.celery import app as celery_app
+    try:
+        celery_app.control.purge()
+    except Exception:
+        pass
+    TestResult.objects.all().delete()
+    return JsonResponse({'status': 'cleared'})
+
+
 def test_status_update(request):
     # Fetch test results and prepare the context
     test_results = TestResult.objects.all()
