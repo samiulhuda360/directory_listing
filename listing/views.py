@@ -10,7 +10,7 @@ import pandas as pd
 from django.http import HttpResponse, JsonResponse
 from celery.result import AsyncResult
 import logging
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 from django.http import FileResponse, HttpResponseNotFound,Http404
 from django.conf import settings
 import json
