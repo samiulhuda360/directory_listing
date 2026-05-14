@@ -1168,54 +1168,44 @@ def update_company_profile_post(row_values, json_url, website, user, password, h
       
       
 def post_summary_to_wordpress(post_title, description, live_urls):
-    try:
-        # Randomly picking a random APIConfig with site_enable=True
-        api_config = APIConfig.objects.filter(site_enable=True).order_by('?').first()
-        if not api_config:
-            logger.error("No enabled WordPress sites available for posting.")
-            return None  # Return None if no WordPress site is available
-        # Construct the content
-        # title = f"Here are Top Citations for {company_name}"
-        url_list = "\n".join([f'<li><a href="{url}">{get_root_domain(url)}</a></li>' for url in live_urls])
-        
-        print("URL List:", url_list)
-        content = f"""
-            <p>{description}</p>
-            <p>Top Citations::</p>
-            <ul>
-                {url_list}
-            </ul>
-        """
-        print(content)
+    configs = list(APIConfig.objects.filter(site_enable=True).order_by('?'))
+    if not configs:
+        logger.error("No enabled WordPress sites available for summary post.")
+        return None
 
-        # Prepare the JSON payload for posting
-        json_url = f"https://{api_config.website.rstrip('/')}/wp-json/wp/v2/posts"
-        payload = {
-            "title": post_title,
-            "content": content,
-            "status": "publish",
-        }
+    url_list = "\n".join([f'<li><a href="{url}">{get_root_domain(url)}</a></li>' for url in live_urls])
+    content = f"""
+        <p>{description}</p>
+        <p>Top Citations::</p>
+        <ul>
+            {url_list}
+        </ul>
+    """
+    payload = {
+        "title": post_title,
+        "content": content,
+        "status": "publish",
+    }
 
-        # Make the POST request
-        response = requests.post(
-            json_url,
-            json=payload,
-            auth=(api_config.user, api_config.password),
-        )
+    for api_config in configs:
+        try:
+            json_url = f"https://{api_config.website.rstrip('/')}/wp-json/wp/v2/posts"
+            response = requests.post(
+                json_url,
+                json=payload,
+                auth=(api_config.user, api_config.password),
+                timeout=20,
+            )
+            if response.status_code == 201:
+                logger.info(f"Summary post created on {api_config.website}")
+                return response.json().get('link')
+            else:
+                logger.warning(f"Summary post failed on {api_config.website} ({response.status_code}) — trying next site")
+        except Exception as e:
+            logger.warning(f"Summary post error on {api_config.website}: {e} — trying next site")
 
-        if response.status_code == 201:  # Post created successfully
-            logger.info(f"Summary post created on {api_config.website}")
-            # Extract the published post URL from the response
-            post_data = response.json()
-            post_url = post_data.get('link')  # The link to the published post
-            return post_url  # Return the URL of the published post
-        else:
-            logger.error(f"Failed to create summary post. Response: {response.text}")
-            return None  # Return None if the post creation fails
-
-    except Exception as e:
-        logger.error(f"Error posting summary to WordPress: {e}", exc_info=True)
-        return None  # Return None in case of an error
+    logger.error("Summary post failed on all available sites.")
+    return None
 
 
       
