@@ -483,8 +483,8 @@ def rest_api_test(request):
         if 'test_all' in request.POST:
             # Clear old results before starting a fresh test run
             TestResult.objects.all().delete()
-            for config in context['api_configs']:
-                perform_test_task.delay(config.id)
+            for i, config in enumerate(context['api_configs']):
+                perform_test_task.apply_async((config.id,), countdown=i * 10)
             # Redirect to avoid re-posting on refresh
             return redirect('rest_api_test')
 
