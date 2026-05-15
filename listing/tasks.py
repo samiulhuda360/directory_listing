@@ -622,6 +622,28 @@ def perform_test_task(self, config_id):
         # Store the error status
         TestResult.objects.create(config_id=config_id, status='Error')
 
+@shared_task(bind=True)
+def run_all_api_tests(self):
+    from .models import APIConfig, TestResult
+    configs = list(APIConfig.objects.all())
+    for i, config in enumerate(configs):
+        try:
+            response = test_post_to_wordpress(config.website, config.user, config.password, "Test Content")
+            if response is None:
+                result = 'Failed: timeout or connection error'
+            elif response.status_code == 201:
+                post_id = response.json().get('id')
+                delete_response = delete_from_wordpress(config.website, config.user, config.password, post_id)
+                result = 'Success' if (delete_response is not None and delete_response.status_code == 200) else 'Failed to delete test post'
+            else:
+                result = f'Failed: HTTP {response.status_code}'
+        except Exception as e:
+            result = f'Error: {e}'
+        TestResult.objects.create(config=config, status=result)
+        if i < len(configs) - 1:
+            time.sleep(10)
+
+
 from urllib.parse import urlparse
 from .models import APIConfig
 

@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-from .tasks import create_company_profile_post, test_post_to_wordpress, delete_from_wordpress, perform_test_task, delete_post_by_url, find_post_id_by_url, update_company_profile_post, post_summary_to_wordpress, get_root_domain
+from .tasks import create_company_profile_post, test_post_to_wordpress, delete_from_wordpress, perform_test_task, run_all_api_tests, delete_post_by_url, find_post_id_by_url, update_company_profile_post, post_summary_to_wordpress, get_root_domain
 from django.shortcuts import render
 import openpyxl
 from .models import APIConfig, GeneratedURL, TestResult, WebsiteData, CompanyURL, PostedWebsite,TaskInfo
@@ -483,8 +483,7 @@ def rest_api_test(request):
         if 'test_all' in request.POST:
             # Clear old results before starting a fresh test run
             TestResult.objects.all().delete()
-            for i, config in enumerate(context['api_configs']):
-                perform_test_task.apply_async((config.id,), countdown=i * 10)
+            run_all_api_tests.delay()
             # Redirect to avoid re-posting on refresh
             return redirect('rest_api_test')
 
